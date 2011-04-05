@@ -15,9 +15,10 @@ import parameters
 class output  :
   """Write the solution in a file."""
 
-  def __init__(self,filename,flux_moments,param) :
+  def __init__(self,filename,flux_moments,p1sa_flxm,param) :
     self.filename = filename
     self.flux_moments = flux_moments
+    self.p1sa_flxm= p1sa_flxm
     self.param = param
     self.compute_grid()
 
@@ -48,4 +49,4 @@ class output  :
 
 # Write the mesh  and the flux
     np.savez(self.filename,x=self.x,y=self.y,
-      flux_moments=self.flux_moments[:][0])
+      flux_moments=self.flux_moments,p1sa_flxm=self.p1sa_flxm)

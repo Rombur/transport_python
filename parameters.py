@@ -14,27 +14,27 @@ class parameters  :
   """Read the inputs (Sn order, material properties and geometry) for the
     transport code."""
 
-  def __init__(self,galerkin,fokker_planck,TC,optimal) :
+  def __init__(self,galerkin,fokker_planck,TC,optimal,is_precond) :
 # geometry
     self.mat_id = np.array([[0,0,0],[0,0,0],[0,0,0]])
     self.src_id = np.array([[0,0,0],[0,1,0],[0,0,0]])
-    self.src = np.array([0.,0.])
+    self.src = np.array([0.,10.])
     self.width = np.array([5.,5.])
-    self.n_div = np.array([3,3])
+    self.n_div = np.array([1,1])
     size = self.mat_id.shape
     self.n_x = self.n_div[0]*size[0]
     self.n_y = self.n_div[1]*size[1]
     self.width_x_cell = self.width[0]/self.n_div[0]
     self.width_y_cell = self.width[1]/self.n_div[1]
     self.n_cells = self.n_x*self.n_y
-    self.inc_left = np.array([0,10,0])
+    self.inc_left = np.array([0,0,0])
     self.inc_right = np.array([0,0,0])
     self.inc_top = np.array([0,0,0])
     self.inc_bottom = np.array([0,0,0])
     self.resize()
 # material property
     self.L_max = 4
-    self.sig_t = np.array([1.])
+    self.sig_t = np.array([11.])
     if fokker_planck == False :
       self.L_max = 0
       self.sig_s = np.zeros((1,1))
@@ -52,6 +52,7 @@ class parameters  :
     if TC == True :
         self.optimal = optimal
         self.transport_correction()
+    self.is_precond = is_precond
 
 #----------------------------------------------------------------------------#
 

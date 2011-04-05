@@ -13,6 +13,7 @@ import scipy.linalg
 import scipy.sparse.linalg
 import quadrature
 import finite_element
+import p1sa
 
 class transport_solver  :
   """Solve the transport equation in 2D for cartesian geometry"""
@@ -84,23 +85,51 @@ class transport_solver  :
     size = self.gmres_b.shape[0]
     A = scipy.sparse.linalg.LinearOperator((size,size),matvec=self.mv,
         rmatvec=None,dtype=float)
-    self.flux_moments = scipy.sparse.linalg.gmres(A,self.gmres_b,x0=None,
+    self.flux_moments,flag = scipy.sparse.linalg.gmres(A,self.gmres_b,x0=None,
         tol=self.tol,restrt=20,maxiter=self.max_iter,M=None,
         callback=self.count_gmres_iterations)
-#    self.flux_moments = scipy.sparse.linalg.bicgstab(A,self.gmres_b,x0=None,
-#        tol=self.tol,maxiter=self.max_iter,M=None,
-#        callback=self.count_gmres_iterations)
+
+    if flag != 0 :
+      print 'Transport did not converge.'
+
+    if self.param.is_precond==True :
+      precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/10.)
+      delta = precond.solve(self.flux_moments)
+      self.flux_moments += delta
+
+# Solve the P1SA equation
+    p1sa_src = self.compute_p1sa_src()
+    p1sa_eq = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/10.)
+    self.p1sa_flxm = p1sa_eq.solve(p1sa_src)
+
+#----------------------------------------------------------------------------#
+
+  def compute_p1sa_src(self) :
+    """Compute the rhs when using the P1SA as solver."""
+
+    x = np.zeros([3*4*self.param.n_cells])
+    for i in xrange(0,self.param.n_y) :
+      for j in xrange(0,self.param.n_x) :
+        cell = j+i*self.param.n_x
+        x[4*cell:4*(cell+1)] = self.param.src[self.param.src_id[i,j]]
+    
+    return x
 
 #----------------------------------------------------------------------------#
 
   def mv(self,x) :
     """Perform the matrix-vector multiplication needed by GMRES."""
 
+    if self.param.is_precond==True :
+      precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/10.)
+      delta = precond.solve(x)
+      x += delta
+
 # Compute the scattering source
     self.compute_scattering_source(x)
 
 # Do a transport sweep (no iteration on significant angular fluxes, we assume
-# that no BC are reflective
+# that no BC are reflective)
     flxm = self.sweep(False)
 
     return x-flxm
