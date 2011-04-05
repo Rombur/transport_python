@@ -7,10 +7,19 @@
 
 import parameters
 import transport_solver
+import output
 
-tol = 1e-12
+tol = 1e-6
 max_it = 1000
-param = parameters.parameters(True,True,True,True)
+galerkin = False
+fokker_planck = False
+TC = False
+optimal = False
+filename = 'transport'
+
+param = parameters.parameters(galerkin,fokker_planck,TC,optimal)
 #param = parameters.parameters(False,False,False,False)
 solver = transport_solver.transport_solver(param,tol,max_it)
 solver.solve()
+out = output.output(filename,solver.flux_moments,param)
+out.write_in_file()

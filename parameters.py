@@ -18,24 +18,27 @@ class parameters  :
 # geometry
     self.mat_id = np.array([[0,0,0],[0,0,0],[0,0,0]])
     self.src_id = np.array([[0,0,0],[0,1,0],[0,0,0]])
-    self.src = np.array([0.,10.])
+    self.src = np.array([0.,0.])
     self.width = np.array([5.,5.])
-    self.n_div = np.array([5,5])
+    self.n_div = np.array([3,3])
     size = self.mat_id.shape
-    self.n_x = self.width[0]*size[0]
-    self.n_y = self.width[1]*size[1]
+    self.n_x = self.n_div[0]*size[0]
+    self.n_y = self.n_div[1]*size[1]
+    self.width_x_cell = self.width[0]/self.n_div[0]
+    self.width_y_cell = self.width[1]/self.n_div[1]
     self.n_cells = self.n_x*self.n_y
-    self.inc_left = np.array([0,0,0])
+    self.inc_left = np.array([0,10,0])
     self.inc_right = np.array([0,0,0])
     self.inc_top = np.array([0,0,0])
     self.inc_bottom = np.array([0,0,0])
     self.resize()
 # material property
     self.L_max = 4
-    self.sig_t = 11
+    self.sig_t = np.array([1.])
     if fokker_planck == False :
-      self.L_max = 1
-      self.sig_s = np.zeros((3,1))
+      self.L_max = 0
+      self.sig_s = np.zeros((1,1))
+      self.sig_s[0,0] = 0.9
     else :
       self.alpha = 1
       self.fokker_planck_xs()
@@ -43,7 +46,7 @@ class parameters  :
 # Sn property
     self.galerkin = galerkin
     if self.galerkin == False :
-      self.sn = 6
+      self.sn = 2
     else :
       self.sn = self.L_max
     if TC == True :
@@ -66,11 +69,11 @@ class parameters  :
     inc_bottom_tmp = np.zeros([new_j_size])
 
     for i in xrange(0,new_i_size) :
-      old_i = int(i)/int(new_i_size)
+      old_i = int(i)/int(self.n_div[0])
       inc_left_tmp[i] = self.inc_left[old_i]
       inc_right_tmp[i] = self.inc_right[old_i]
       for j in xrange(0,new_j_size) :
-        old_j = int(j)/int(new_j_size) 
+        old_j = int(j)/int(self.n_div[1]) 
         mat_id_tmp[i,j] = self.mat_id[old_i,old_j]
         src_id_tmp[i,j] = self.src_id[old_i,old_j]
     for j in xrange(0,new_j_size) :

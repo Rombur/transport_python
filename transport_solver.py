@@ -20,7 +20,7 @@ class transport_solver  :
   def __init__(self,param,tol,max_it) :
 
     self.tol = tol
-    self.max_it = max_it
+    self.max_iter = max_it
     self.param = param
 # Create and build the quadrature
     self.quad = quadrature.quadrature(param)
@@ -65,9 +65,9 @@ class transport_solver  :
     number of iterations and compute the L2 norm of the current residual."""
 
     self.gmres_iteration += 1
-    res = scipy.linalg.normv(residual) 
-    print 'Iteration : %i'%self.gmres_iteration
-    print 'L2 of the residual : %d'%scipy.linalg.norm(residual)
+    res = scipy.linalg.norm(residual) 
+    print 'L2-norm of the residual for iteration %i'%self.gmres_iteration +\
+        ' : %f'%scipy.linalg.norm(residual)
 
 #----------------------------------------------------------------------------#
 
@@ -80,11 +80,64 @@ class transport_solver  :
     self.gmres_b = self.sweep(gmres_rhs)
 
 # GMRES solver 
-    self.gmres_iteration = 0
-    print '?'
-    self.flux_moment = scipy.sparse.linalg.gmres(A,b,x0=None,tol=self.tol,
-        restrt=None,maxiter=self.max_iter,M=None,
-        callback=self.cout_gmres_iteration)
+    self.gmres_iteration = 0                
+    size = self.gmres_b.shape[0]
+    A = scipy.sparse.linalg.LinearOperator((size,size),matvec=self.mv,
+        rmatvec=None,dtype=float)
+    self.flux_moments = scipy.sparse.linalg.gmres(A,self.gmres_b,x0=None,
+        tol=self.tol,restrt=20,maxiter=self.max_iter,M=None,
+        callback=self.count_gmres_iterations)
+#    self.flux_moments = scipy.sparse.linalg.bicgstab(A,self.gmres_b,x0=None,
+#        tol=self.tol,maxiter=self.max_iter,M=None,
+#        callback=self.count_gmres_iterations)
+
+#----------------------------------------------------------------------------#
+
+  def mv(self,x) :
+    """Perform the matrix-vector multiplication needed by GMRES."""
+
+# Compute the scattering source
+    self.compute_scattering_source(x)
+
+# Do a transport sweep (no iteration on significant angular fluxes, we assume
+# that no BC are reflective
+    flxm = self.sweep(False)
+
+    return x-flxm
+
+#----------------------------------------------------------------------------#
+
+  def compute_scattering_source(self,x) :
+    """Compute the scattering given a flux."""
+
+    self.scattering_src = np.zeros((4*self.param.n_mom*self.param.n_cells))
+    for cell in xrange(0,int(self.param.n_cells)) :
+# Get i,j pair from a cell
+      [i,j] = self.cell_mapping(cell)
+      i_mat = self.param.mat_id[i,j]
+      sca = self.param.sig_s[:,i_mat]
+# Get location in the matrix
+      ii = self.mapping(i,j)
+# Block diagonal term
+      for k in xrange(0,self.param.n_mom) :
+        kk = k*4*self.param.n_cells + ii
+        tmp = x[kk[0]:kk[3]+1]
+        dot_product = np.dot(self.fe.mass_matrix,tmp)
+        pos = 0
+        for i_kk in xrange(int(kk[0]),int(kk[3]+1)) :
+          self.scattering_src[i_kk] += self.scattering_src[i_kk] + sca[k]*\
+              dot_product[pos]
+          pos += 1
+
+#----------------------------------------------------------------------------#
+
+  def cell_mapping(self,cell) :
+    """Get the i,j pair of a cell given a cell."""
+
+    j = np.floor(cell/self.param.n_x)
+    i = cell - j*self.param.n_x
+
+    return i,j
 
 #----------------------------------------------------------------------------#
 
@@ -96,26 +149,26 @@ class transport_solver  :
     y_down = np.zeros((2,4,4))
     y_up = np.zeros((2,4,4))
 
-    x_down_i = [[2,3],[0,1]]
-    x_up_i = [[0,1],[2,3]]
-    x_down_j = [[2,3],[0,1]]
-    x_up_j = [[2,3],[0,1]]
+    x_down_i = np.array([[2,3],[0,1]])
+    x_up_i = np.array([[0,1],[2,3]])
+    x_down_j = np.array([[2,3],[0,1]])
+    x_up_j = np.array([[2,3],[0,1]])
 
-    y_down_i = [[1,3],[0,2]]
-    y_up_i = [[0,2],[1,3]]
-    y_down_j = [[1,3],[0,2]]
-    y_up_j = [[1,3],[0,2]]
+    y_down_i = np.array([[1,3],[0,2]])
+    y_up_i = np.array([[0,2],[1,3]])
+    y_down_j = np.array([[1,3],[0,2]])
+    y_up_j = np.array([[1,3],[0,2]])
 
     for k in xrange(0,2) :
       for i in xrange(0,2) :
         for j in xrange(0,2) :
-          x_down[k,x_down_i[i],x_down_j[j]] = (-1)**k *\
+          x_down[k,x_down_i[k,i],x_down_j[k,j]] = (-1)**k *\
               self.fe.vertical_edge_mass_matrix[i,j]
-          x_up[k,x_up_i[i],x_up_j[j]] = (-1)**(k+1) *\
+          x_up[k,x_up_i[k,i],x_up_j[k,j]] = (-1)**(k+1) *\
               self.fe.vertical_edge_mass_matrix[i,j]
-          y_down[k,y_down_i[i],y_down_j[j]] = (-1)**k *\
+          y_down[k,y_down_i[k,i],y_down_j[k,j]] = (-1)**k *\
               self.fe.horizontal_edge_mass_matrix[i,j]
-          y_up[k,y_up_i[i],y_up_j[j]] = (-1)**(k+1) *\
+          y_up[k,y_up_i[k,i],y_up_j[k,j]] = (-1)**(k+1) *\
               self.fe.horizontal_edge_mass_matrix[i,j]
 
     return x_down,x_up,y_down,y_up
@@ -135,11 +188,14 @@ class transport_solver  :
   def sweep(self,gmres_rhs) :
     """Do the transport sweep on all the directions."""
                                                     
+    tmp = int(4*self.param.n_cells)
+    self.scattering_src = self.scattering_src.reshape(self.param.n_mom,tmp)
+
     [x_down,x_up,y_down,y_up] = self.upwind_edge()
     
     flux_moments = np.zeros((4*self.param.n_mom*self.param.n_cells))
     for idir in xrange(0,self.quad.n_dir) :
-      psi=np.zeros((4*self.param.n_cells))
+      psi = np.zeros((4*self.param.n_cells))
 
 # Direction alias
       omega_x = self.quad.omega[idir,0]
@@ -176,13 +232,12 @@ class transport_solver  :
           i_mat = self.param.mat_id[i,j]
           sig_t = self.param.sig_t[i_mat]
 
-# Volumetix term of the rhs
+# Volumetric term of the rhs
           i_src = self.param.src_id[i,j]
           rhs = np.zeros((4))
           if gmres_rhs == True :
             rhs = self.param.src[i_src]*self.fe.width_cell[0]*\
                 self.fe.width_cell[1]*np.ones((4))/4.
-# Put the source to 0 because it is only need to build the rhs for GMRES
 
 # Get location in the matrix
           ii = self.mapping(i,j)
@@ -234,6 +289,6 @@ class transport_solver  :
       for i in xrange(0,self.param.n_mom) :
         i_begin = i*4*self.param.n_cells
         i_end = (i+1)*4*self.param.n_cells
-        flux_moments[i_begin:i_end] += self.quad.M[i,idir]*psi[:]
+        flux_moments[i_begin:i_end] += self.quad.D[i,idir]*psi[:]
     
     return flux_moments

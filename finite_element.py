@@ -37,5 +37,5 @@ class finite_element  :
    
     self.horizontal_edge_mass_matrix = self.width_cell[0]/6.*np.array([[2.,1.],
      [1.,2.]])
-    self.vertical_edge_mass_matrix = self.width_cell[1]/6.*np.array([[1.,2.],
-     [2.,1.]])
+    self.vertical_edge_mass_matrix = self.width_cell[1]/6.*np.array([[2.,1.],
+     [1.,2.]])
