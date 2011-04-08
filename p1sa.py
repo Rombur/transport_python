@@ -124,7 +124,7 @@ class p1sa  :
               x_krylov[pos_j+x_current_offset]     
           x[pos_i] -= self.fe.y_grad_matrix[i,j]*\
               x_krylov[pos_j+y_current_offset]     
-
+          
 # The edges are numbered as follow : first the vertical ones (left to right
 # and then the bottom to top) then the horizontal ones (bottom to top and left
 # to right).
@@ -146,7 +146,7 @@ class p1sa  :
         top_edge_offset = self.compute_edge_offset('top')
 
         for i in xrange(0,2) :
-          is_vertical,i_edge_pos = self.edge_index(j,edge,inside)
+          is_vertical,i_edge_pos = self.edge_index(i,edge,inside)
           if is_vertical==True :
             edge_offset = right_edge_offset
             current_offset = x_current_offset
@@ -155,7 +155,7 @@ class p1sa  :
           else :
             edge_offset = top_edge_offset
             current_offset = y_current_offset
-            tan_current_offset =x_current_offset
+            tan_current_offset = x_current_offset
             edge_mass_matrix = self.fe.horizontal_edge_mass_matrix
          
           for j in xrange(0,2) :
@@ -212,7 +212,6 @@ class p1sa  :
                 edge_mass_matrix[i,j]*x_krylov[j_edge_pos+tan_current_offset]
             x[i_edge_pos+tan_current_offset] += 9./16.*edge_mass_matrix[i,j]*\
                 x_krylov[j_edge_pos+tan_current_offset]
-      
       else :
 # Caveat : the normal is always outgoing on the boundary. It is not the same
 # rule than for the interior edges.
@@ -300,6 +299,8 @@ class p1sa  :
     else :
       if next_cell=='top' :
         offset = 4*self.param.n_x-1
+      else :
+        print 'Illegal cell.'
 
     return offset
 
@@ -312,13 +313,13 @@ class p1sa  :
       if edge < self.param.n_y*(self.param.n_x+1) :
         line = np.floor(edge/(self.param.n_x+1))
         column = edge-line*(self.param.n_x+1)-1
-        index = 4*self.param.n_x*line+4*column+1+i
+        index = 4*self.param.n_x*line+4*column+2+i
         is_vertical = True
       else :
         edge = edge-self.param.n_y*(self.param.n_x+1)
         column = np.floor(edge/(self.param.n_y+1))
         line = edge-column*(self.param.n_y+1)-1
-        index = 4*self.param.n_x*line+4*column+2+2*i
+        index = 4*self.param.n_x*line+4*column+1+2*i
         is_vertical = False
     else :
       if edge < self.param.n_y*(self.param.n_x+1) :

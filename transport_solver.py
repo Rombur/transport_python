@@ -93,15 +93,15 @@ class transport_solver  :
       print 'Transport did not converge.'
 
     if self.param.is_precond==True :
-      precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/10.)
+      precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
       delta = precond.solve(self.flux_moments)
       self.flux_moments += delta
 
 # Solve the P1SA equation
     p1sa_src = self.compute_p1sa_src()
-    p1sa_eq = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/10.)
+    p1sa_eq = p1sa.p1sa(self.param,self.quad,self.fe,self.tol)
     self.p1sa_flxm = p1sa_eq.solve(p1sa_src)
-
+    
 #----------------------------------------------------------------------------#
 
   def compute_p1sa_src(self) :
@@ -111,7 +111,7 @@ class transport_solver  :
     for i in xrange(0,self.param.n_y) :
       for j in xrange(0,self.param.n_x) :
         cell = j+i*self.param.n_x
-        x[4*cell:4*(cell+1)] = self.param.src[self.param.src_id[i,j]]
+        x[4*cell:4*(cell+1)] = self.param.src[self.param.src_id[j,i]]
     
     return x
 
@@ -120,19 +120,21 @@ class transport_solver  :
   def mv(self,x) :
     """Perform the matrix-vector multiplication needed by GMRES."""
 
+    y=x.copy()
     if self.param.is_precond==True :
-      precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/10.)
-      delta = precond.solve(x)
-      x += delta
+      precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
+      delta = precond.solve(x.copy())
+      y += delta
 
 # Compute the scattering source
-    self.compute_scattering_source(x)
+    self.compute_scattering_source(y)
 
 # Do a transport sweep (no iteration on significant angular fluxes, we assume
 # that no BC are reflective)
     flxm = self.sweep(False)
-
-    return x-flxm
+    sol = y-flxm
+    
+    return sol
 
 #----------------------------------------------------------------------------#
 
@@ -319,5 +321,6 @@ class transport_solver  :
         i_begin = i*4*self.param.n_cells
         i_end = (i+1)*4*self.param.n_cells
         flux_moments[i_begin:i_end] += self.quad.D[i,idir]*psi[:]
+        
     
     return flux_moments

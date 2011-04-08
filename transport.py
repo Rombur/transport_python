@@ -4,18 +4,17 @@
 #----------------------------------------------------------------------------#
 
 # Driver for the transport code.
-
 import parameters
 import transport_solver
 import output
 
-tol = 1e-6
+tol = 1e-4
 max_it = 1000
-galerkin = False
-fokker_planck = False
-TC = False
+galerkin = True
+fokker_planck = True
+TC = True
 optimal = False
-is_precond = False
+is_precond = True
 filename = 'transport'
 
 param = parameters.parameters(galerkin,fokker_planck,TC,optimal,is_precond)

@@ -90,7 +90,8 @@ class quadrature  :
         self.omega[pos,0] = self.sin_theta[i]*np.cos(self.azith_nodes[j+offset])
         self.omega[pos,1] = self.sin_theta[i]*np.sin(self.azith_nodes[j+offset])
         self.omega[pos,2] = self.cos_theta[i]
-        self.weight[pos] = self.polar_weight[i]*self.azith_weight[j+offset]
+        self.weight[pos] = self.polar_weight[self.sn/2+i]*\
+            self.azith_weight[j+offset]
         pos += 1
       offset += self.sn/2-i  
 
