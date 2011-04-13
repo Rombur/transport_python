@@ -11,6 +11,7 @@
 import numpy as np
 import scipy.linalg
 import scipy.sparse.linalg
+import parameters
 import quadrature
 import finite_element
 import p1sa
@@ -75,27 +76,56 @@ class transport_solver  :
   def solve(self) :
     """Solve the transport equation"""
 
+    if self.param.multigrid==True :
+      if self.param.sn==8 :
 # Compute the uncollided flux moment (D*inv(L)*q) = rhs of gmres
-    gmres_rhs = True
-    self.scattering_src = np.zeros((self.param.n_mom,4*self.param.n_cells))
-    self.gmres_b = self.sweep(gmres_rhs)
+        gmres_rhs = True
+        self.scattering_src = np.zeros((self.param.n_mom,4*self.param.n_cells))
+        self.gmres_b = self.sweep(gmres_rhs)
 
 # GMRES solver 
-    self.gmres_iteration = 0                
-    size = self.gmres_b.shape[0]
-    A = scipy.sparse.linalg.LinearOperator((size,size),matvec=self.mv,
-        rmatvec=None,dtype=float)
-    self.flux_moments,flag = scipy.sparse.linalg.gmres(A,self.gmres_b,x0=None,
-        tol=self.tol,restrt=20,maxiter=self.max_iter,M=None,
-        callback=self.count_gmres_iterations)
+        self.gmres_iteration = 0                
+        size = self.gmres_b.shape[0]
+        A = scipy.sparse.linalg.LinearOperator((size,size),matvec=self.mv,
+            rmatvec=None,dtype=float)
+        self.flux_moments,flag = scipy.sparse.linalg.gmres(A,self.gmres_b,x0=None,
+            tol=self.tol,restrt=20,maxiter=self.max_iter,M=None,
+            callback=self.count_gmres_iterations)
 
-    if flag != 0 :
-      print 'Transport did not converge.'
+        if flag != 0 :
+          print 'Transport did not converge.'
 
-    if self.param.is_precond==True :
-      precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
-      delta = precond.solve(self.flux_moments)
-      self.flux_moments += delta
+        precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
+        delta = precond.solve(self.flux_moments)
+        delta_2 = self.flux_moments+delta
+        coarse_param = parameters.parameters(self.param.galerkin,
+            self.param.fokker_planck,self.param.TC,self.param.optimal,
+            self.param.is_precond,self.param.L_max/2,self.param.sn/2)
+        coarse_solver = transport_solve(coarse_param,self.tol,self.max_it)
+        solution = coarse_solver.mv(delta_2)
+        self.flux_moments += solution
+    else :
+# Compute the uncollided flux moment (D*inv(L)*q) = rhs of gmres
+      gmres_rhs = True
+      self.scattering_src = np.zeros((self.param.n_mom,4*self.param.n_cells))
+      self.gmres_b = self.sweep(gmres_rhs)
+
+# GMRES solver 
+      self.gmres_iteration = 0                
+      size = self.gmres_b.shape[0]
+      A = scipy.sparse.linalg.LinearOperator((size,size),matvec=self.mv,
+          rmatvec=None,dtype=float)
+      self.flux_moments,flag = scipy.sparse.linalg.gmres(A,self.gmres_b,x0=None,
+          tol=self.tol,restrt=20,maxiter=self.max_iter,M=None,
+          callback=self.count_gmres_iterations)
+
+      if flag != 0 :
+        print 'Transport did not converge.'
+
+      if self.param.is_precond==True :
+        precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
+        delta = precond.solve(self.flux_moments)
+        self.flux_moments += delta
 
 # Solve the P1SA equation
     p1sa_src = self.compute_p1sa_src()
@@ -121,18 +151,53 @@ class transport_solver  :
     """Perform the matrix-vector multiplication needed by GMRES."""
 
     y=x.copy()
-    if self.param.is_precond==True :
-      precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
-      delta = precond.solve(x.copy())
-      y += delta
+    if self.param.multigrid==True :
+      if self.param.sn==8 :
+        print 'I am here 1'
+        coarse_param = parameters.parameters(self.param.galerkin,
+            self.param.fokker_planck,self.param.TC,self.param.optimal,
+            self.param.is_precond,self.param.multigrid,self.param.L_max/2,
+            self.param.sn/2)
+        print 'I am here 2'
+        coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter)
+        print 'I am here 3'
+        solution = coarse_solver.mv(y)
+        print 'I am here 4'
+        y += self.project_vector(solution)
+        print 'I am here 5'
 
 # Compute the scattering source
-    self.compute_scattering_source(y)
+        self.compute_scattering_source(y)
 
 # Do a transport sweep (no iteration on significant angular fluxes, we assume
 # that no BC are reflective)
-    flxm = self.sweep(False)
-    sol = y-flxm
+        flxm = self.sweep(False)
+        sol = y-flxm
+
+      elif self.param.sn==4 :
+        precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
+        delta = precond.solve(x.copy())
+        y += delta
+# Compute the scattering source
+        self.compute_scattering_source(y)
+
+# Do a transport sweep (no iteration on significant angular fluxes, we assume
+# that no BC are reflective)
+        sol = self.sweep(False)
+
+    else :
+      if self.param.is_precond==True :
+        precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
+        delta = precond.solve(x.copy())
+        y += delta
+
+# Compute the scattering source
+      self.compute_scattering_source(y)
+
+# Do a transport sweep (no iteration on significant angular fluxes, we assume
+# that no BC are reflective)
+      flxm = self.sweep(False)
+      sol = y-flxm
     
     return sol
 
@@ -324,3 +389,23 @@ class transport_solver  :
         
     
     return flux_moments
+
+#----------------------------------------------------------------------------#
+
+  def project_vector(self,x) :
+    """Project a vector from coarse_n_mom to self.n_mom"""
+
+    projection = np.zeros(4*self.param.n_mom*self.param.n_cells)
+    coarse_n_mom = x.shape[0]/(4*self.param.n_cells)
+    if self.param.galerkin==True :
+      skip = (-1+np.sqrt(1+2*self.param.n_mom))/2
+      tmp_end = coarse_n_mom-(skip-1)
+      residual = coarse_n_mom-tmp_end
+      projection[0:tmp_end] = x[0:tmp_end]
+      projection[tmp_end+skip:tmp_end+skip+residual] =\
+          x[tmp_end:tmp_end+residual]
+    else :
+      projection[0:4*self.n_mom*self.param.n_cells] = x[0:4*coarse_n_mom*\
+          self.param.n_cells]
+
+    return projection  

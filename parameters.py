@@ -14,7 +14,8 @@ class parameters  :
   """Read the inputs (Sn order, material properties and geometry) for the
     transport code."""
 
-  def __init__(self,galerkin,fokker_planck,TC,optimal,is_precond) :
+  def __init__(self,galerkin,fokker_planck,TC,optimal,is_precond,
+      multigrid,L_max,sn) :
 # geometry
     self.mat_id = np.array([[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],\
         [0,0,0,0,0]])
@@ -22,7 +23,7 @@ class parameters  :
         [0,0,0,0,0]])
     self.src = np.array([0.,10.])
     self.width = np.array([1.,1.])
-    self.n_div = np.array([10,10])
+    self.n_div = np.array([1,1])
     size = self.mat_id.shape
     self.n_x = self.n_div[0]*size[0]
     self.n_y = self.n_div[1]*size[1]
@@ -35,10 +36,10 @@ class parameters  :
     self.inc_bottom = np.array([0,0,0,0,0])
     self.resize()
 # material property
-    self.L_max = 4
+    self.L_max = L_max
     self.sig_t = np.array([11.])
+    self.fokker_planck = fokker_planck
     if fokker_planck == False :
-      self.L_max = 1
       self.sig_s = np.zeros((3,1))
       self.sig_s[0,0] = 0.99
     else :
@@ -48,13 +49,15 @@ class parameters  :
 # Sn property
     self.galerkin = galerkin
     if self.galerkin == False :
-      self.sn = 4
+      self.sn = sn
     else :
       self.sn = self.L_max
+    self.TC = TC
     if TC == True :
         self.optimal = optimal
         self.transport_correction()
     self.is_precond = is_precond
+    self.multigrid = multigrid
 
 #----------------------------------------------------------------------------#
 
