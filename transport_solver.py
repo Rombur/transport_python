@@ -95,15 +95,20 @@ class transport_solver  :
         if flag != 0 :
           print 'Transport did not converge.'
 
-        precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
-        delta = precond.solve(self.flux_moments)
-        delta_2 = self.flux_moments+delta
+        y = self.flux_moments.copy()
         coarse_param = parameters.parameters(self.param.galerkin,
             self.param.fokker_planck,self.param.TC,self.param.optimal,
-            self.param.is_precond,self.param.L_max/2,self.param.sn/2)
-        coarse_solver = transport_solve(coarse_param,self.tol,self.max_it)
-        solution = coarse_solver.mv(delta_2)
-        self.flux_moments += solution
+            self.param.is_precond,self.param.multigrid,1,self.param.L_max/2,
+            self.param.sn/2)
+        coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter)
+        y = coarse_solver.restrict_vector(y)
+        precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
+        delta = precond.solve(y)
+        y += delta
+        coarse_solver.compute_scattering_source(y)
+        delta_2= coarse_solver.sweep(False)
+        projected_delta_2 = self.project_vector(delta_2)
+        self.flux_moments += projected_delta_2
     else :
 # Compute the uncollided flux moment (D*inv(L)*q) = rhs of gmres
       gmres_rhs = True
@@ -153,18 +158,13 @@ class transport_solver  :
     y=x.copy()
     if self.param.multigrid==True :
       if self.param.sn==8 :
-        print 'I am here 1'
         coarse_param = parameters.parameters(self.param.galerkin,
             self.param.fokker_planck,self.param.TC,self.param.optimal,
-            self.param.is_precond,self.param.multigrid,self.param.L_max/2,
+            self.param.is_precond,self.param.multigrid,1,self.param.L_max/2,
             self.param.sn/2)
-        print 'I am here 2'
         coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter)
-        print 'I am here 3'
         solution = coarse_solver.mv(y)
-        print 'I am here 4'
         y += self.project_vector(solution)
-        print 'I am here 5'
 
 # Compute the scattering source
         self.compute_scattering_source(y)
@@ -175,8 +175,9 @@ class transport_solver  :
         sol = y-flxm
 
       elif self.param.sn==4 :
+        y = self.restrict_vector(y)
         precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
-        delta = precond.solve(x.copy())
+        delta = precond.solve(y)
         y += delta
 # Compute the scattering source
         self.compute_scattering_source(y)
@@ -184,7 +185,6 @@ class transport_solver  :
 # Do a transport sweep (no iteration on significant angular fluxes, we assume
 # that no BC are reflective)
         sol = self.sweep(False)
-
     else :
       if self.param.is_precond==True :
         precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
@@ -198,7 +198,6 @@ class transport_solver  :
 # that no BC are reflective)
       flxm = self.sweep(False)
       sol = y-flxm
-    
     return sol
 
 #----------------------------------------------------------------------------#
@@ -393,19 +392,41 @@ class transport_solver  :
 #----------------------------------------------------------------------------#
 
   def project_vector(self,x) :
-    """Project a vector from coarse_n_mom to self.n_mom"""
+    """Project a vector from coarse_n_mom to self.n_mom."""
 
+    n_dofs = 4*self.param.n_cells
     projection = np.zeros(4*self.param.n_mom*self.param.n_cells)
     coarse_n_mom = x.shape[0]/(4*self.param.n_cells)
     if self.param.galerkin==True :
-      skip = (-1+np.sqrt(1+2*self.param.n_mom))/2
+      skip = (-1+np.sqrt(1+2*self.param.n_mom))/2-1
       tmp_end = coarse_n_mom-(skip-1)
       residual = coarse_n_mom-tmp_end
-      projection[0:tmp_end] = x[0:tmp_end]
-      projection[tmp_end+skip:tmp_end+skip+residual] =\
-          x[tmp_end:tmp_end+residual]
+      projection[0:n_dofs*tmp_end] = x[0:n_dofs*tmp_end]
+      projection[n_dofs*(tmp_end+skip):n_dofs*(tmp_end+skip+residual)] =\
+          x[n_dofs*tmp_end:n_dofs*(tmp_end+residual)]
     else :
       projection[0:4*self.n_mom*self.param.n_cells] = x[0:4*coarse_n_mom*\
           self.param.n_cells]
-
+    
     return projection  
+
+#----------------------------------------------------------------------------#
+
+  def restrict_vector(self,x) :
+    """Project a vector from refine_n_mom to self.n_mom."""
+
+    n_dofs = 4*self.param.n_cells
+    restriction= np.zeros(4*self.param.n_mom*self.param.n_cells)
+    refine_n_mom = x.shape[0]/(4*self.param.n_cells)
+    if self.param.galerkin==True :
+      skip = self.param.sn-1
+      tmp_end = self.param.n_mom-(skip-1)
+      residual = self.param.n_mom-tmp_end
+      restriction[0:n_dofs*tmp_end] = x[0:n_dofs*tmp_end]
+      restriction[n_dofs*tmp_end:n_dofs*(tmp_end+residual)] =\
+          x[n_dofs*(tmp_end+skip):n_dofs*(tmp_end+skip+residual)]
+    else :
+      restriction[0:4*self.n_mom*self.param.n_cells] = x[0:4*self.n_mom*\
+          self.param.n_cells]
+    
+    return restriction  

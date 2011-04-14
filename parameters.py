@@ -15,15 +15,15 @@ class parameters  :
     transport code."""
 
   def __init__(self,galerkin,fokker_planck,TC,optimal,is_precond,
-      multigrid,L_max,sn) :
+      multigrid,level,L_max,sn) :
 # geometry
     self.mat_id = np.array([[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],\
         [0,0,0,0,0]])
     self.src_id = np.array([[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],\
         [0,0,0,0,0]])
-    self.src = np.array([0.,10.])
+    self.src = np.array([10.])
     self.width = np.array([1.,1.])
-    self.n_div = np.array([1,1])
+    self.n_div = np.array([2,2])
     size = self.mat_id.shape
     self.n_x = self.n_div[0]*size[0]
     self.n_y = self.n_div[1]*size[1]
@@ -37,13 +37,14 @@ class parameters  :
     self.resize()
 # material property
     self.L_max = L_max
-    self.sig_t = np.array([11.])
+    self.sig_t = np.array([37.])
     self.fokker_planck = fokker_planck
     if fokker_planck == False :
       self.sig_s = np.zeros((3,1))
       self.sig_s[0,0] = 0.99
     else :
       self.alpha = 1
+      self.level = level
       self.fokker_planck_xs()
     self.n_mom = self.sig_s.shape[0]
 # Sn property
@@ -53,8 +54,8 @@ class parameters  :
     else :
       self.sn = self.L_max
     self.TC = TC
+    self.optimal = optimal
     if TC == True :
-        self.optimal = optimal
         self.transport_correction()
     self.is_precond = is_precond
     self.multigrid = multigrid
@@ -101,12 +102,18 @@ class parameters  :
 
     size = self.L_max*(self.L_max+2)/2
     self.sig_s = np.zeros((size,1))
-    
+   
     pos = 0
+# Compute the effective L_max used by the angular multigrid
+    L_max_eff = self.L_max+self.level*self.L_max
     for i in xrange(0,self.L_max) :
       for j in xrange(0,i+1) :
-        self.sig_s[pos] = self.alpha/2.0*(self.L_max*(self.L_max+1)-i*(i+1))
+        self.sig_s[pos] = self.alpha/2.0*(L_max_eff*(L_max_eff+1)-i*(i+1))
         pos += 1
+    if self.level==1 :
+      for i in xrange(pos,size) :
+        self.sig_s[i] = self.alpha/2.0*(L_max_eff*(L_max_eff+1)-self.L_max*\
+            (self.L_max+1))
 
 #----------------------------------------------------------------------------#
 
@@ -114,9 +121,9 @@ class parameters  :
     """Compute the transport correction for the cross sections."""
 
     if self.optimal == True :
-      correction = self.sig_s[3].copy()/2.
+      correction = (self.sig_s[3]+self.sig_s[-1])/2.
     else :
-      correction = self.sig_s[1].copy()
+      correction = self.sig_s[1]
     
     self.sig_t -= correction
     self.sig_s -= correction
