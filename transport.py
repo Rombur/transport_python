@@ -22,7 +22,7 @@ multigrid = True
 level = 0
 L_max = 8
 sn = 8
-filename = 'transport_s8_mutligrid'
+filename = 'transport'
 
 param = parameters.parameters(galerkin,fokker_planck,TC,optimal,is_precond,
     multigrid,level,L_max,sn)
