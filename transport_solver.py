@@ -15,12 +15,14 @@ import parameters
 import quadrature
 import finite_element
 import p1sa
+import mip
 
-class transport_solver  :
+class transport_solver(object) :
   """Solve the transport equation in 2D for cartesian geometry"""
 
   def __init__(self,param,tol,max_it) :
 
+    super(transport_solver,self).__init__()
     self.tol = tol
     self.max_iter = max_it
     self.param = param
@@ -98,8 +100,8 @@ class transport_solver  :
         y = self.flux_moments.copy()
         coarse_param = parameters.parameters(self.param.galerkin,
             self.param.fokker_planck,self.param.TC,self.param.optimal,
-            self.param.is_precond,self.param.multigrid,1,self.param.L_max/2,
-            self.param.sn/2)
+            self.param.is_precond,self.param.multigrid,self.param.L_max/2,
+            self.param.sn/2,level=1)
         coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter)
         y = coarse_solver.restrict_vector(y)
         precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
@@ -127,22 +129,34 @@ class transport_solver  :
       if flag != 0 :
         print 'Transport did not converge.'
 
-      if self.param.is_precond==True :
+      if self.param.preconditioner=='P1SA' :
         precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
+        delta = precond.solve(self.flux_moments)
+        self.flux_moments += delta
+      elif self.param.preconditioner=='MIP' :
+        precond = mip.mip(self.param,self.quad,self.fe,self.tol/1e+2)
         delta = precond.solve(self.flux_moments)
         self.flux_moments += delta
 
 # Solve the P1SA equation
-    p1sa_src = self.compute_p1sa_src()
+    p1sa_src = self.compute_precond_src('P1SA')
     p1sa_eq = p1sa.p1sa(self.param,self.quad,self.fe,self.tol)
     self.p1sa_flxm = p1sa_eq.solve(p1sa_src)
+
+# Solve the MIP equation
+    mip_src = self.compute_precond_src('MIP')
+    mip_eq = mip.mip(self.param,self.quad,self.fe,self.tol)
+    self.mip_flxm = mip_eq.solve(mip_src)
     
 #----------------------------------------------------------------------------#
 
-  def compute_p1sa_src(self) :
-    """Compute the rhs when using the P1SA as solver."""
+  def compute_precond_src(self,precond) :
+    """Compute the rhs when using the P1SA or the MIP as solver."""
 
-    x = np.zeros([3*4*self.param.n_cells])
+    if precond=='P1SA' :
+      x = np.zeros([3*4*self.param.n_cells])
+    else :
+      x = np.zeros([4*self.param.n_cells])
     for i in xrange(0,self.param.n_y) :
       for j in xrange(0,self.param.n_x) :
         cell = j+i*self.param.n_x
@@ -160,8 +174,8 @@ class transport_solver  :
       if self.param.sn==8 :
         coarse_param = parameters.parameters(self.param.galerkin,
             self.param.fokker_planck,self.param.TC,self.param.optimal,
-            self.param.is_precond,self.param.multigrid,1,self.param.L_max/2,
-            self.param.sn/2)
+            self.param.is_precond,self.param.multigrid,self.param.L_max/2,
+            self.param.sn/2,level=1)
         coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter)
         solution = coarse_solver.mv(y)
         y += self.project_vector(solution)
@@ -186,8 +200,12 @@ class transport_solver  :
 # that no BC are reflective)
         sol = self.sweep(False)
     else :
-      if self.param.is_precond==True :
+      if self.param.preconditioner=='P1SA' :
         precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
+        delta = precond.solve(x.copy())
+        y += delta
+      elif self.param.preconditioner=='MIP' :
+        precond = mip.mip(self.param,self.quad,self.fe,self.tol/1e+2)
         delta = precond.solve(x.copy())
         y += delta
 

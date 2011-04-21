@@ -25,14 +25,19 @@ def create_mayavi(filename) :
 # Load flux moments
   flux_moments = data['flux_moments']
   p1sa_flxm = data['p1sa_flxm']
+  mip_flxm = data['mip_flxm']
 
   scalar_flux = flux_moments[0:4*x_size*y_size]
   new_scalar_flux = change_shape(x_size,y_size,scalar_flux)
   p1sa_scalar_flux = p1sa_flxm[0:4*x_size*y_size]
   new_p1sa_scalar_flux = change_shape(x_size,y_size,p1sa_scalar_flux)
+  new_mip_scalar_flux = change_shape(x_size,y_size,mip_flxm)
+
   new_x,new_y = expand(x,y,x_size,y_size)
+  
   mayavi_mlab.mesh(new_x,new_y,new_scalar_flux,name='transport : scalar flux')
   mayavi_mlab.mesh(new_x,new_y,new_p1sa_scalar_flux,name='p1sa : scalar flux')
+  mayavi_mlab.mesh(new_x,new_y,new_mip_scalar_flux,name='mip : scalar flux')
 #  mayavi_pipeline.array2d_source(x,y,new_scalar_flux,name='2D')
 #  mayavi_mlab.surf(x,y,new_scalar_flux,name='3D')
 

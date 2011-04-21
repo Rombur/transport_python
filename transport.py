@@ -8,25 +8,35 @@ import parameters
 import transport_solver
 import output
 
+# Tolerance for GMRES
 tol = 1e-4
+# Maximum number of iterations fo GMRES
 max_it = 1000
 # If galerkin is True, sn = L_max -> the value of sn is not read
-galerkin = True
-fokker_planck = True
+galerkin = False
+# If True uses Fokker-Planck cross-section
+fokker_planck = False
+# If True uses transport correction
 TC = False
+# If True and TC is True, uses the optimal transport correction. If TC is
+# False, optimal is not read
 optimal = True
-is_precond = True
+# Preconditioner used : 'None', 'P1SA' or 'MIP'
+preconditioner = 'MIP'
 # Multigrid works only with S_8 due to a bug in gmres
-# If multigrid is True is_precond is not read
-multigrid = True
-level = 0
-L_max = 8
-sn = 8
+multigrid = False
+# L_max
+L_max = 0
+# Order of the Sn method
+sn = 4
+# Name of the output file
 filename = 'transport'
 
-param = parameters.parameters(galerkin,fokker_planck,TC,optimal,is_precond,
-    multigrid,level,L_max,sn)
+# Driver of the program
+param = parameters.parameters(galerkin,fokker_planck,TC,optimal,preconditioner,
+    multigrid,L_max,sn)
 solver = transport_solver.transport_solver(param,tol,max_it)
 solver.solve()
-out = output.output(filename,solver.flux_moments,solver.p1sa_flxm,param)
+out = output.output(filename,solver.flux_moments,solver.p1sa_flxm,
+    solver.mip_flxm,param)
 out.write_in_file()

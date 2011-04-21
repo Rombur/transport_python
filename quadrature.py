@@ -13,11 +13,13 @@ import scipy.special.orthogonal
 import scipy.linalg
 import scipy.misc.common as sci
 
-class quadrature  :
+class quadrature(object)  :
   """Build the quadrature (Gauss-Legendre-Chebyshev) and the Galerkin
   version of the quadrature. Create the M and D matrices."""
 
   def __init__(self,param) :
+
+    super(quadrature,self).__init__()
     self.sn = param.sn
     self.n_dir = self.sn*(self.sn+2)/2
     self.galerkin = param.galerkin

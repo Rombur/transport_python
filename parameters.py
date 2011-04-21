@@ -10,38 +10,38 @@
 
 import numpy as np
 
-class parameters  :
+class parameters(object) :
   """Read the inputs (Sn order, material properties and geometry) for the
     transport code."""
 
-  def __init__(self,galerkin,fokker_planck,TC,optimal,is_precond,
-      multigrid,level,L_max,sn) :
+  def __init__(self,galerkin,fokker_planck,TC,optimal,preconditioner,
+      multigrid,L_max,sn,level=0) :
+
+    super(parameters,self).__init__()
 # geometry
-    self.mat_id = np.array([[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],\
-        [0,0,0,0,0]])
-    self.src_id = np.array([[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],\
-        [0,0,0,0,0]])
+    self.mat_id = np.array([[0]])
+    self.src_id = np.array([[0]])
     self.src = np.array([10.])
     self.width = np.array([1.,1.])
-    self.n_div = np.array([2,2])
+    self.n_div = np.array([10,10])
     size = self.mat_id.shape
     self.n_x = self.n_div[0]*size[0]
     self.n_y = self.n_div[1]*size[1]
     self.width_x_cell = self.width[0]/self.n_div[0]
     self.width_y_cell = self.width[1]/self.n_div[1]
     self.n_cells = self.n_x*self.n_y
-    self.inc_left = np.array([10.,10.,10.,10.,10.])
-    self.inc_right = np.array([0,0,0,0,0])
-    self.inc_top = np.array([0,0,0,0,0])
-    self.inc_bottom = np.array([0,0,0,0,0])
+    self.inc_left = np.array([0])
+    self.inc_right = np.array([0])
+    self.inc_top = np.array([0])
+    self.inc_bottom = np.array([0])
     self.resize()
 # material property
     self.L_max = L_max
-    self.sig_t = np.array([37.])
+    self.sig_t = np.array([10.])
     self.fokker_planck = fokker_planck
     if fokker_planck == False :
-      self.sig_s = np.zeros((3,1))
-      self.sig_s[0,0] = 0.99
+      self.sig_s = np.zeros((1,1))
+      self.sig_s[0,0] = 9.9
     else :
       self.alpha = 1
       self.level = level
@@ -57,7 +57,7 @@ class parameters  :
     self.optimal = optimal
     if TC == True :
         self.transport_correction()
-    self.is_precond = is_precond
+    self.preconditioner = preconditioner
     self.multigrid = multigrid
 
 #----------------------------------------------------------------------------#
