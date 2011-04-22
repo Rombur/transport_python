@@ -15,29 +15,29 @@ class parameters(object) :
     transport code."""
 
   def __init__(self,galerkin,fokker_planck,TC,optimal,preconditioner,
-      multigrid,L_max,sn,level=0) :
+      multigrid,L_max,sn,level=0,max_level=0) :
 
     super(parameters,self).__init__()
 # geometry
     self.mat_id = np.array([[0]])
     self.src_id = np.array([[0]])
-    self.src = np.array([10.])
+    self.src = np.array([0.])
     self.width = np.array([1.,1.])
-    self.n_div = np.array([10,10])
+    self.n_div = np.array([2,2])
     size = self.mat_id.shape
     self.n_x = self.n_div[0]*size[0]
     self.n_y = self.n_div[1]*size[1]
     self.width_x_cell = self.width[0]/self.n_div[0]
     self.width_y_cell = self.width[1]/self.n_div[1]
     self.n_cells = self.n_x*self.n_y
-    self.inc_left = np.array([0])
-    self.inc_right = np.array([0])
-    self.inc_top = np.array([0])
-    self.inc_bottom = np.array([0])
+    self.inc_left = np.array([1.])
+    self.inc_right = np.array([0.])
+    self.inc_top = np.array([0.])
+    self.inc_bottom = np.array([0.])
     self.resize()
 # material property
     self.L_max = L_max
-    self.sig_t = np.array([10.])
+    self.sig_t = np.array([37.])
     self.fokker_planck = fokker_planck
     if fokker_planck == False :
       self.sig_s = np.zeros((1,1))
@@ -45,6 +45,17 @@ class parameters(object) :
     else :
       self.alpha = 1
       self.level = level
+      self.max_level = max_level
+      if level==0 :
+        tmp_sn = sn
+        if preconditioner=='MIP' :
+          while tmp_sn>2 :
+            self.max_level += 1
+            tmp_sn /= 2
+        else :
+          while tmp_sn>4 :
+            self.max_level += 1
+            tmp_sn /= 2
       self.fokker_planck_xs()
     self.n_mom = self.sig_s.shape[0]
 # Sn property
@@ -105,12 +116,12 @@ class parameters(object) :
    
     pos = 0
 # Compute the effective L_max used by the angular multigrid
-    L_max_eff = self.L_max+self.level*self.L_max
+    L_max_eff = 2.**self.level*self.L_max
     for i in xrange(0,self.L_max) :
       for j in xrange(0,i+1) :
         self.sig_s[pos] = self.alpha/2.0*(L_max_eff*(L_max_eff+1)-i*(i+1))
         pos += 1
-    if self.level==1 :
+    if self.level!=0 :
       for i in xrange(pos,size) :
         self.sig_s[i] = self.alpha/2.0*(L_max_eff*(L_max_eff+1)-self.L_max*\
             (self.L_max+1))

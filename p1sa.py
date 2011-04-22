@@ -15,9 +15,9 @@ import synthetic_acceleration as na
 class p1sa(na.synthetic_acceleration)  :
   """Preconditioner for the transport equation using the P1SA equation."""
 
-  def __init__(self,parameters,quadrature,fe,tol) :
+  def __init__(self,parameters,fe,tol) :
 
-    super(p1sa,self).__init__(parameters,quadrature,fe,tol)
+    super(p1sa,self).__init__(parameters,fe,tol)
 
 #----------------------------------------------------------------------------#
 
@@ -144,9 +144,6 @@ class p1sa(na.synthetic_acceleration)  :
           current_offset = y_current_offset
           tan_current_offset = x_current_offset
           edge_mass_matrix = self.fe.horizontal_edge_mass_matrix
-# Need to go to the right or to the top cell -> offset is different
-        right_edge_offset = self.compute_edge_offset('right')
-        top_edge_offset = self.compute_edge_offset('top')
 
         for i in xrange(0,2) :
           i_edge_pos = self.edge_index(i,edge,inside)

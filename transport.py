@@ -13,22 +13,24 @@ tol = 1e-4
 # Maximum number of iterations fo GMRES
 max_it = 1000
 # If galerkin is True, sn = L_max -> the value of sn is not read
-galerkin = False
+galerkin = True
 # If True uses Fokker-Planck cross-section
-fokker_planck = False
+fokker_planck = True
 # If True uses transport correction
 TC = False
 # If True and TC is True, uses the optimal transport correction. If TC is
 # False, optimal is not read
-optimal = True
+optimal = False
 # Preconditioner used : 'None', 'P1SA' or 'MIP'
-preconditioner = 'MIP'
-# Multigrid works only with S_8 due to a bug in gmres
+preconditioner = 'None'
+# When multigrid is used, a preconditioner has to be applied (P1SA is chosen by
+# default)
+# Multigrid works only when using with Fokker-Planck cross-section
 multigrid = False
 # L_max
-L_max = 0
+L_max = 8
 # Order of the Sn method
-sn = 4
+sn = 8
 # Name of the output file
 filename = 'transport'
 

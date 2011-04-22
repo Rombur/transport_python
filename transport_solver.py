@@ -11,6 +11,7 @@
 import numpy as np
 import scipy.linalg
 import scipy.sparse.linalg
+import time
 import parameters
 import quadrature
 import finite_element
@@ -27,14 +28,18 @@ class transport_solver(object) :
     self.max_iter = max_it
     self.param = param
 # Create and build the quadrature
-    self.quad = quadrature.quadrature(param)
-    self.quad.build_quadrature()
+# When the transport solver is reduced to the MIP or the P1SA. There is no
+# quadrature, we don't need the quadrature which sometimes does not exist.
+    if np.fmod(self.param.sn,2)==0 :
+      self.quad = quadrature.quadrature(param)
+      self.quad.build_quadrature()
 # Create and build the finite element object
     self.fe = finite_element.finite_element(param)
     self.fe.build_2D_FE()
     self.fe.build_1D_FE()
 # Compute the most normal direction
-    self.most_normal()
+    if np.fmod(self.param.sn,2)==0 :
+      self.most_normal()
 
 #----------------------------------------------------------------------------#
 
@@ -78,39 +83,33 @@ class transport_solver(object) :
   def solve(self) :
     """Solve the transport equation"""
 
+    start = time.time()
     if self.param.multigrid==True :
-      if self.param.sn==8 :
 # Compute the uncollided flux moment (D*inv(L)*q) = rhs of gmres
-        gmres_rhs = True
-        self.scattering_src = np.zeros((self.param.n_mom,4*self.param.n_cells))
-        self.gmres_b = self.sweep(gmres_rhs)
+      gmres_rhs = True
+      self.scattering_src = np.zeros((self.param.n_mom,4*self.param.n_cells))
+      self.gmres_b = self.sweep(gmres_rhs)
 
 # GMRES solver 
-        self.gmres_iteration = 0                
-        size = self.gmres_b.shape[0]
-        A = scipy.sparse.linalg.LinearOperator((size,size),matvec=self.mv,
-            rmatvec=None,dtype=float)
-        self.flux_moments,flag = scipy.sparse.linalg.gmres(A,self.gmres_b,x0=None,
-            tol=self.tol,restrt=20,maxiter=self.max_iter,M=None,
-            callback=self.count_gmres_iterations)
+      self.gmres_iteration = 0                
+      size = self.gmres_b.shape[0]
+      A = scipy.sparse.linalg.LinearOperator((size,size),matvec=self.mv,
+          rmatvec=None,dtype=float)
+      self.flux_moments,flag = scipy.sparse.linalg.gmres(A,self.gmres_b,x0=None,
+          tol=self.tol,restrt=20,maxiter=self.max_iter,M=None,
+          callback=self.count_gmres_iterations)
 
-        if flag != 0 :
-          print 'Transport did not converge.'
+      if flag != 0 :
+        print 'Transport did not converge.'
 
-        y = self.flux_moments.copy()
-        coarse_param = parameters.parameters(self.param.galerkin,
-            self.param.fokker_planck,self.param.TC,self.param.optimal,
-            self.param.is_precond,self.param.multigrid,self.param.L_max/2,
-            self.param.sn/2,level=1)
-        coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter)
-        y = coarse_solver.restrict_vector(y)
-        precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
-        delta = precond.solve(y)
-        y += delta
-        coarse_solver.compute_scattering_source(y)
-        delta_2= coarse_solver.sweep(False)
-        projected_delta_2 = self.project_vector(delta_2)
-        self.flux_moments += projected_delta_2
+      y = self.flux_moments.copy()
+      coarse_param = parameters.parameters(self.param.galerkin,
+          self.param.fokker_planck,self.param.TC,self.param.optimal,
+          self.param.preconditioner,self.param.multigrid,self.param.L_max/2,
+          self.param.sn/2,level=1,max_level=self.param.max_level)
+      coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter)
+      solution = coarse_solver.mv(y)
+      self.flux_moments += self.project_vector(solution)
     else :
 # Compute the uncollided flux moment (D*inv(L)*q) = rhs of gmres
       gmres_rhs = True
@@ -130,22 +129,24 @@ class transport_solver(object) :
         print 'Transport did not converge.'
 
       if self.param.preconditioner=='P1SA' :
-        precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
+        precond = p1sa.p1sa(self.param,self.fe,self.tol/1e+2)
         delta = precond.solve(self.flux_moments)
         self.flux_moments += delta
       elif self.param.preconditioner=='MIP' :
-        precond = mip.mip(self.param,self.quad,self.fe,self.tol/1e+2)
+        precond = mip.mip(self.param,self.fe,self.tol/1e+2)
         delta = precond.solve(self.flux_moments)
         self.flux_moments += delta
+    end = time.time()
+    print 'Elapsed time to solve the problem : %f'%(end-start)
 
 # Solve the P1SA equation
     p1sa_src = self.compute_precond_src('P1SA')
-    p1sa_eq = p1sa.p1sa(self.param,self.quad,self.fe,self.tol)
+    p1sa_eq = p1sa.p1sa(self.param,self.fe,self.tol)
     self.p1sa_flxm = p1sa_eq.solve(p1sa_src)
 
 # Solve the MIP equation
     mip_src = self.compute_precond_src('MIP')
-    mip_eq = mip.mip(self.param,self.quad,self.fe,self.tol)
+    mip_eq = mip.mip(self.param,self.fe,self.tol)
     self.mip_flxm = mip_eq.solve(mip_src)
     
 #----------------------------------------------------------------------------#
@@ -168,14 +169,13 @@ class transport_solver(object) :
 
   def mv(self,x) :
     """Perform the matrix-vector multiplication needed by GMRES."""
-
     y=x.copy()
     if self.param.multigrid==True :
-      if self.param.sn==8 :
+      if self.param.level==0 :
         coarse_param = parameters.parameters(self.param.galerkin,
             self.param.fokker_planck,self.param.TC,self.param.optimal,
-            self.param.is_precond,self.param.multigrid,self.param.L_max/2,
-            self.param.sn/2,level=1)
+            self.param.preconditioner,self.param.multigrid,self.param.L_max/2,
+            self.param.sn/2,level=1,max_level=self.param.max_level)
         coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter)
         solution = coarse_solver.mv(y)
         y += self.project_vector(solution)
@@ -187,25 +187,40 @@ class transport_solver(object) :
 # that no BC are reflective)
         flxm = self.sweep(False)
         sol = y-flxm
+      elif self.param.level>self.param.max_level :
+        if self.param.preconditioner=='MIP' :
+          precond = mip.mip(self.param,self.fe,self.tol/1e+2)
+          delta = precond.solve(y)
+          sol = delta
+        else :
+          precond = p1sa.p1sa(self.param,self.fe,self.tol/1e+2)
+          delta = precond.solve(y)
+          sol = delta
+      else :
+        z = self.restrict_vector(y)
+        coarse_param = parameters.parameters(self.param.galerkin,
+            self.param.fokker_planck,self.param.TC,self.param.optimal,
+            self.param.preconditioner,self.param.multigrid,self.param.L_max/2,
+            self.param.sn/2,level=self.param.level+1,max_level=self.param.max_level)
+        coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter)
+        solution = coarse_solver.mv(z)
+        solution_proj = self.project_vector(solution)
+        z += solution_proj
 
-      elif self.param.sn==4 :
-        y = self.restrict_vector(y)
-        precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
-        delta = precond.solve(y)
-        y += delta
 # Compute the scattering source
-        self.compute_scattering_source(y)
+        self.compute_scattering_source(z)
 
 # Do a transport sweep (no iteration on significant angular fluxes, we assume
 # that no BC are reflective)
-        sol = self.sweep(False)
+        flxm = self.sweep(False)
+        sol = flxm
     else :
       if self.param.preconditioner=='P1SA' :
-        precond = p1sa.p1sa(self.param,self.quad,self.fe,self.tol/1e+2)
+        precond = p1sa.p1sa(self.param,self.fe,self.tol/1e+2)
         delta = precond.solve(x.copy())
         y += delta
       elif self.param.preconditioner=='MIP' :
-        precond = mip.mip(self.param,self.quad,self.fe,self.tol/1e+2)
+        precond = mip.mip(self.param,self.fe,self.tol/1e+2)
         delta = precond.solve(x.copy())
         y += delta
 
@@ -216,6 +231,7 @@ class transport_solver(object) :
 # that no BC are reflective)
       flxm = self.sweep(False)
       sol = y-flxm
+
     return sol
 
 #----------------------------------------------------------------------------#

@@ -14,9 +14,8 @@ class synthetic_acceleration(object) :
   """This class is the base class for the synthetic acceleration : DSA and
   P1SA."""
 
-  def __init__(self,parameters,quadrature,fe,tol) :
+  def __init__(self,parameters,fe,tol) :
     self.param = parameters
-    self.quad = quadrature
     self.fe = fe
     self.tol = tol
 
@@ -93,10 +92,10 @@ class synthetic_acceleration(object) :
       else :
         is_vertical = False
     else :
-        if edge<self.param.n_y*(self.param.n_x+1) :
-          is_vertical = True
-        else :
-          is_vertical = False
+      if edge<self.param.n_y*(self.param.n_x+1) :
+        is_vertical = True
+      else :
+        is_vertical = False
 
     return is_vertical
 

@@ -15,9 +15,9 @@ import synthetic_acceleration as na
 class mip(na.synthetic_acceleration) :
   """Preconditioner for the transport using the MIP equation."""
 
-  def __init__(self,parameters,quadrature,fe,tol) :
+  def __init__(self,parameters,fe,tol) :
 
-    super(mip,self).__init__(parameters,quadrature,fe,tol)
+    super(mip,self).__init__(parameters,fe,tol)
 
 #----------------------------------------------------------------------------#
 
