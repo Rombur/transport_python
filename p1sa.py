@@ -9,15 +9,28 @@
 """Solve the P1SA equation"""
 
 import numpy as np
+import scipy.sparse
 import scipy.sparse.linalg
-import synthetic_acceleration as na
+import synthetic_acceleration as sa
 
-class p1sa(na.synthetic_acceleration)  :
+class p1sa(sa.synthetic_acceleration)  :
   """Preconditioner for the transport equation using the P1SA equation."""
 
   def __init__(self,parameters,fe,tol) :
 
     super(p1sa,self).__init__(parameters,fe,tol)
+
+#----------------------------------------------------------------------------#
+
+  def count_cg_iterations(self,residual) :
+    """Callback function called at the end of each CGiteration. Count the
+    number of iterations and compute the L2 norm of the current residual."""
+
+    self.bicgstab_iteration += 1
+    res = scipy.linalg.norm(residual)
+    if self.param.verbose==2 :
+      print ' L2-norm of the residual for iteration %i'%self.bicgstab_iteration+\
+          ' : %f'%scipy.linalg.norm(residual)
 
 #----------------------------------------------------------------------------#
 
@@ -39,10 +52,16 @@ class p1sa(na.synthetic_acceleration)  :
 # Compute the right-hand-side
     self.compute_rhs()
 
-# GMRES solver 
-    A = scipy.sparse.linalg.LinearOperator((size,size),matvec=self.mv,
-        rmatvec=None,dtype=float)
-    flux,flag = scipy.sparse.linalg.bicgstab(A,self.p1sa_b,tol=self.tol)
+# BICGSTAB solver 
+    self.bicgstab_iteration = 0
+    if self.param.matrix_free==True :
+      A = scipy.sparse.linalg.LinearOperator((size,size),matvec=self.mv,
+          rmatvec=None,dtype=float)
+      flux,flag = scipy.sparse.linalg.bicgstab(A,self.p1sa_b,tol=self.tol)
+    else :
+      A = self.build_lhs()
+      A = A.tocsr()
+      flux,flag = scipy.sparse.linalg.bicgstab(A,self.p1sa_b,tol=self.tol)
 
     if flag!=0 :
       print 'P1SA did not converge.'
@@ -246,5 +265,170 @@ class p1sa(na.synthetic_acceleration)  :
               j_edge_pos = self.edge_index(j,edge,inside)
               x[i_edge_pos+current_offset] += 9./4.*edge_mass_matrix[i,j]*\
                   x_krylov[j_edge_pos+current_offset]
+
+    return x              
+
+#----------------------------------------------------------------------------#
+
+  def build_lhs(self) :
+    """Build the matrix of P1SA that will be used by BICGSTAB."""
+
+    boundary = 'vacuum'
+    size = 3*4*self.param.n_cells
+    x = scipy.sparse.lil_matrix((size,size))
+    x_current_offset = 4*self.param.n_cells
+    y_current_offset = 2*4*self.param.n_cells
+
+    for cell in xrange(0,self.param.n_cells) :
+      
+      i,j = self.cell_mapping(cell)
+      i_mat = self.param.mat_id[i,j]
+      sig_a = self.param.sig_t[i_mat]-self.param.sig_s[0,i_mat]
+      if self.param.sig_s.shape[0]>1 :
+        sig_tr = self.param.sig_t[i_mat]-self.param.sig_s[1,i_mat]
+      else :
+        sig_tr = self.param.sig_t[i_mat]
+
+      for i in xrange(0,4) :
+        pos_i = self.index(i,cell)
+        for j in xrange(0,4) :
+          pos_j = self.index(j,cell)
+          
+          x[pos_i,pos_j] += sig_a*self.fe.mass_matrix[i,j]
+
+          x[pos_i+x_current_offset,pos_j+x_current_offset] += 3*sig_tr*\
+              self.fe.mass_matrix[i,j]
+          x[pos_i+y_current_offset,pos_j+y_current_offset] += 3*sig_tr*\
+              self.fe.mass_matrix[i,j]
+
+          x[pos_i+x_current_offset,pos_j] += self.fe.x_grad_matrix[j,i]
+          x[pos_i+y_current_offset,pos_j] += self.fe.y_grad_matrix[j,i]
+
+          x[pos_i,pos_j+x_current_offset] -= self.fe.x_grad_matrix[i,j]
+          x[pos_i,pos_j+y_current_offset] -= self.fe.y_grad_matrix[i,j]
+          
+# The edges are numbered as follow : first the vertical ones (left to right
+# and then the bottom to top) then the horizontal ones (bottom to top and left
+# to right).
+#     4
+#   -----
+#   |   |
+# 1 |   | 2
+#   |   | 
+#   -----
+#     3
+
+    n_edges = self.param.n_x*(self.param.n_y+1)+self.param.n_y*\
+        (self.param.n_x+1)
+    for edge in xrange(0,n_edges) :
+      inside = self.interior(edge)
+      if inside == True :
+        is_vertical = self.compute_vertical(edge,inside)
+        if is_vertical==True :
+          edge_offset = self.compute_edge_offset('right')
+          current_offset = x_current_offset
+          tan_current_offset = y_current_offset
+          edge_mass_matrix = self.fe.vertical_edge_mass_matrix
+        else :
+          edge_offset = self.compute_edge_offset('top')
+          current_offset = y_current_offset
+          tan_current_offset = x_current_offset
+          edge_mass_matrix = self.fe.horizontal_edge_mass_matrix
+
+        for i in xrange(0,2) :
+          i_edge_pos = self.edge_index(i,edge,inside)
+          for j in xrange(0,2) :
+            j_edge_pos = self.edge_index(j,edge,inside) 
+
+# First edge term
+            x[i_edge_pos,j_edge_pos] += 0.25*edge_mass_matrix[i,j]
+            x[i_edge_pos,j_edge_pos+edge_offset] -= 0.25*edge_mass_matrix[i,j]
+            x[i_edge_pos+edge_offset,j_edge_pos] -= 0.25*edge_mass_matrix[i,j]
+            x[i_edge_pos+edge_offset,j_edge_pos+edge_offset] += 0.25*\
+                edge_mass_matrix[i,j]
+
+# Second edge term
+            x[i_edge_pos+edge_offset+current_offset,j_edge_pos+edge_offset]+=\
+                0.5*edge_mass_matrix[i,j]
+            x[i_edge_pos+current_offset,j_edge_pos+edge_offset] += 0.5*\
+                edge_mass_matrix[i,j]
+            x[i_edge_pos+edge_offset+current_offset,j_edge_pos] -= 0.5*\
+                edge_mass_matrix[i,j]
+            x[i_edge_pos+current_offset,j_edge_pos] -= 0.5*edge_mass_matrix[i,j]
+
+# Third edge term 
+            x[i_edge_pos+edge_offset,j_edge_pos+edge_offset+current_offset] -= 0.5*\
+                edge_mass_matrix[i,j]
+            x[i_edge_pos,j_edge_pos+edge_offset+current_offset] += 0.5*\
+                edge_mass_matrix[i,j]
+            x[i_edge_pos+edge_offset,j_edge_pos+current_offset] -= 0.5*\
+                edge_mass_matrix[i,j]
+            x[i_edge_pos,j_edge_pos+current_offset] += 0.5*edge_mass_matrix[i,j]
+
+# Fourth (J dot n jump) and part of the fifth (normal jump) edge terms put
+# together
+            x[i_edge_pos+edge_offset+current_offset,j_edge_pos+edge_offset+\
+                current_offset] += 9./8.*edge_mass_matrix[i,j]
+            x[i_edge_pos+current_offset,j_edge_pos+edge_offset+current_offset]-=\
+                9./8.*edge_mass_matrix[i,j]
+            x[i_edge_pos+edge_offset+current_offset,j_edge_pos+current_offset]-=\
+                9./8.*edge_mass_matrix[i,j]
+            x[i_edge_pos+current_offset,j_edge_pos+current_offset] += 9./8.*\
+                edge_mass_matrix[i,j]
+
+# Tangential jump (fifth edge term)
+            x[i_edge_pos+edge_offset+tan_current_offset,j_edge_pos+edge_offset+\
+                tan_current_offset] += 9./16.*edge_mass_matrix[i,j]
+            x[i_edge_pos+tan_current_offset,j_edge_pos+edge_offset+\
+                tan_current_offset] -= 9./16.*edge_mass_matrix[i,j]
+            x[i_edge_pos+edge_offset+tan_current_offset,\
+                j_edge_pos+tan_current_offset] -= 9./16.*edge_mass_matrix[i,j]
+            x[i_edge_pos+tan_current_offset,j_edge_pos+tan_current_offset] +=\
+                9./16.*edge_mass_matrix[i,j]
+      else :
+# Caveat : the normal is always outgoing on the boundary. It is not the same
+# rule than for the interior edges.
+        if boundary=='vacuum' :
+          is_vertical = self.compute_vertical(edge,inside)
+          if is_vertical==True :
+            current_offset = x_current_offset
+            tan_current_offset = y_current_offset
+            edge_mass_matrix = self.fe.vertical_edge_mass_matrix
+          else :
+            current_offset = y_current_offset
+            tan_current_offset = x_current_offset
+            edge_mass_matrix = self.fe.horizontal_edge_mass_matrix
+          for i in xrange(0,2) :
+            i_edge_pos = self.edge_index(i,edge,inside) 
+            
+            Jdotn = self.compute_Jdotn(edge,is_vertical)
+
+            for j in xrange(0,2) :
+              j_edge_pos = self.edge_index(j,edge,inside)
+
+              x[i_edge_pos,j_edge_pos] += 0.25*edge_mass_matrix[i,j]
+              x[i_edge_pos+current_offset,j_edge_pos] -= 0.5*Jdotn*\
+                  edge_mass_matrix[i,j]
+              x[i_edge_pos,j_edge_pos+current_offset] += 0.5*Jdotn*\
+                  edge_mass_matrix[i,j]
+              x[i_edge_pos+tan_current_offset,j_edge_pos+tan_current_offset]+=\
+                  9./16.*edge_mass_matrix[i,j]
+# (Jdotn)^2 -> always positive -> omitted
+              x[i_edge_pos+current_offset,j_edge_pos+current_offset] +=\
+                  9./8.*edge_mass_matrix[i,j]
+        else :
+          is_vertical = self.compute_vertical(edge,inside) 
+          if is_vertical==True :
+            current_offset = x_current_offset
+            edge_mass_matrix = self.fe.vertical_edge_mass_matrix
+          else :
+            current_offset = y_current_offset
+            edge_mass_matrix = self.fe.horizontal_edge_mass_matrix
+          for i in xrange(0,2) :
+            i_edge_pos = self.edge_index(i,edge,inside)
+            for j in xrange(0,2) :
+              j_edge_pos = self.edge_index(j,edge,inside)
+              x[i_edge_pos+current_offset,j_edge_pos+current_offset] +=\
+                  9./4.*edge_mass_matrix[i,j]
 
     return x              

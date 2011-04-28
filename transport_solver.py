@@ -75,8 +75,9 @@ class transport_solver(object) :
 
     self.gmres_iteration += 1
     res = scipy.linalg.norm(residual) 
-    print 'L2-norm of the residual for iteration %i'%self.gmres_iteration +\
-        ' : %f'%scipy.linalg.norm(residual)
+    if self.param.verbose>0 :
+      print 'L2-norm of the residual for iteration %i'%self.gmres_iteration +\
+          ' : %f'%scipy.linalg.norm(residual)
 
 #----------------------------------------------------------------------------#
 
@@ -192,10 +193,12 @@ class transport_solver(object) :
           precond = mip.mip(self.param,self.fe,self.tol/1e+2)
           delta = precond.solve(y)
           sol = delta
-        else :
+        elif self.param.preconditioner=='P1SA' :
           precond = p1sa.p1sa(self.param,self.fe,self.tol/1e+2)
           delta = precond.solve(y)
           sol = delta
+        else :
+          sol = y
       else :
         z = self.restrict_vector(y)
         coarse_param = parameters.parameters(self.param.galerkin,

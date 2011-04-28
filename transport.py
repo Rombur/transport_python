@@ -17,16 +17,16 @@ galerkin = True
 # If True uses Fokker-Planck cross-section
 fokker_planck = True
 # If True uses transport correction
-TC = False
+TC = True
 # If True and TC is True, uses the optimal transport correction. If TC is
 # False, optimal is not read
-optimal = False
+optimal = True
 # Preconditioner used : 'None', 'P1SA' or 'MIP'
-preconditioner = 'None'
+preconditioner = 'MIP'
 # When multigrid is used, a preconditioner has to be applied (P1SA is chosen by
 # default)
 # Multigrid works only when using with Fokker-Planck cross-section
-multigrid = False
+multigrid = True
 # L_max
 L_max = 8
 # Order of the Sn method

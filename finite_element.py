@@ -19,6 +19,7 @@ class finite_element(object) :
     self.width = param.width
     self.width_cell = np.array([self.width[0]/param.n_div[0],self.width[1]/
       param.n_div[1]])
+    self.n_dofs_per_cell = 4
 
 #----------------------------------------------------------------------------#
 

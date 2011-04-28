@@ -9,6 +9,7 @@
 """Read the inputs for the transport code"""
 
 import numpy as np
+import utils
 
 class parameters(object) :
   """Read the inputs (Sn order, material properties and geometry) for the
@@ -22,41 +23,51 @@ class parameters(object) :
     self.mat_id = np.array([[0]])
     self.src_id = np.array([[0]])
     self.src = np.array([0.])
-    self.width = np.array([1.,1.])
-    self.n_div = np.array([2,2])
+    self.width = np.array([5.,5.])
+    self.n_div = np.array([3,3])
     size = self.mat_id.shape
     self.n_x = self.n_div[0]*size[0]
     self.n_y = self.n_div[1]*size[1]
     self.width_x_cell = self.width[0]/self.n_div[0]
     self.width_y_cell = self.width[1]/self.n_div[1]
     self.n_cells = self.n_x*self.n_y
-    self.inc_left = np.array([1.])
-    self.inc_right = np.array([0.])
+    self.inc_left = np.array([0.])
+    if self.inc_left.shape[0]!=self.mat_id.shape[0] :
+      utils.abort('inc_left has a wrong size.')
+    self.inc_right = np.array([10.])
+    if self.inc_right.shape[0]!=self.mat_id.shape[0] :
+      utils.abort('inc_right has a wrong size.')
     self.inc_top = np.array([0.])
+    if self.inc_top.shape[0]!=self.mat_id.shape[1] :
+      utils.abort('inc_top has a wrong size.')
     self.inc_bottom = np.array([0.])
+    if self.inc_bottom.shape[0]!=self.mat_id.shape[1] :
+      utils.abort('inc_bottom has a wrong size.')
     self.resize()
 # material property
     self.L_max = L_max
-    self.sig_t = np.array([37.])
+    self.sig_t = np.array([36.])
     self.fokker_planck = fokker_planck
     if fokker_planck == False :
-      self.sig_s = np.zeros((1,1))
-      self.sig_s[0,0] = 9.9
+      self.sig_s = np.zeros((40,1))
+      self.sig_s[0,0] = 1.
     else :
       self.alpha = 1
       self.level = level
       self.max_level = max_level
       if level==0 :
         tmp_sn = sn
-        if preconditioner=='MIP' :
-          while tmp_sn>2 :
-            self.max_level += 1
-            tmp_sn /= 2
-        else :
+        if preconditioner=='P1SA':
           while tmp_sn>4 :
             self.max_level += 1
             tmp_sn /= 2
+        else :
+          while tmp_sn>2 :
+            self.max_level += 1
+            tmp_sn /= 2
       self.fokker_planck_xs()
+    if self.sig_s[0]>self.sig_t :
+      utils.abort('sig_s[0] is greater than sig_t.')
     self.n_mom = self.sig_s.shape[0]
 # Sn property
     self.galerkin = galerkin
@@ -68,8 +79,18 @@ class parameters(object) :
     self.optimal = optimal
     if TC == True :
         self.transport_correction()
+# Solver properties
     self.preconditioner = preconditioner
     self.multigrid = multigrid
+# If matrix_free is True, the preconditioner matrix is not build
+    self.matrix_free = False
+# If the matrix is build and pyamg is True, the preconditioner is solve using
+# a algebraic multigrid method
+    self.pyamg = False
+# If a multigrid method is used and accel is True, the multigrid is used to
+# accelerate a Krylov solver. Otherwise the multigrid is used in standalone
+    self.accel = False
+    self.verbose = 2
 
 #----------------------------------------------------------------------------#
 
@@ -132,9 +153,12 @@ class parameters(object) :
     """Compute the transport correction for the cross sections."""
 
     if self.optimal == True :
-      correction = (self.sig_s[3]+self.sig_s[-1])/2.
+      if self.sig_s.shape[0]>=4 :
+        correction = (self.sig_s[3]+self.sig_s[-1])/2.
+      else :
+        correction = 0.
     else :
-      correction = self.sig_s[1]
+      correction = self.sig_s[-1]
     
     self.sig_t -= correction
     self.sig_s -= correction
