@@ -21,7 +21,7 @@ import mip
 class transport_solver(object) :
   """Solve the transport equation in 2D for cartesian geometry"""
 
-  def __init__(self,param,tol,max_it) :
+  def __init__(self,param,tol,max_it,output_file) :
 
     super(transport_solver,self).__init__()
     self.tol = tol
@@ -39,7 +39,9 @@ class transport_solver(object) :
     self.fe.build_1D_FE()
 # Compute the most normal direction
     if np.fmod(self.param.sn,2)==0 :
-      self.most_normal()
+       self.most_normal()
+# Save the values to be printed in a file 
+    self.output_file = output_file
 
 #----------------------------------------------------------------------------#
 
@@ -76,8 +78,8 @@ class transport_solver(object) :
     self.gmres_iteration += 1
     res = scipy.linalg.norm(residual) 
     if self.param.verbose>0 :
-      print 'L2-norm of the residual for iteration %i'%self.gmres_iteration +\
-          ' : %f'%scipy.linalg.norm(residual)
+      self.print_message('L2-norm of the residual for iteration %i'\
+          %self.gmres_iteration+' : %f'%scipy.linalg.norm(residual))
 
 #----------------------------------------------------------------------------#
 
@@ -101,14 +103,15 @@ class transport_solver(object) :
           callback=self.count_gmres_iterations)
 
       if flag != 0 :
-        print 'Transport did not converge.'
+        self.print_message('Transport did not converge.')
 
       y = self.flux_moments.copy()
       coarse_param = parameters.parameters(self.param.galerkin,
           self.param.fokker_planck,self.param.TC,self.param.optimal,
           self.param.preconditioner,self.param.multigrid,self.param.L_max/2,
           self.param.sn/2,level=1,max_level=self.param.max_level)
-      coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter)
+      coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter,
+          self.output_file)
       solution = coarse_solver.mv(y)
       self.flux_moments += self.project_vector(solution)
     else :
@@ -127,7 +130,7 @@ class transport_solver(object) :
           callback=self.count_gmres_iterations)
 
       if flag != 0 :
-        print 'Transport did not converge.'
+        self.print_message('Transport did not converge.')
 
       if self.param.preconditioner=='P1SA' :
         precond = p1sa.p1sa(self.param,self.fe,self.tol/1e+2)
@@ -138,16 +141,16 @@ class transport_solver(object) :
         delta = precond.solve(self.flux_moments)
         self.flux_moments += delta
     end = time.time()
-    print 'Elapsed time to solve the problem : %f'%(end-start)
+    self.print_message('Elapsed time to solve the problem : %f'%(end-start))
 
 # Solve the P1SA equation
     p1sa_src = self.compute_precond_src('P1SA')
-    p1sa_eq = p1sa.p1sa(self.param,self.fe,self.tol)
+    p1sa_eq = p1sa.p1sa(self.param,self.fe,self.tol,self.output_file)
     self.p1sa_flxm = p1sa_eq.solve(p1sa_src)
 
 # Solve the MIP equation
     mip_src = self.compute_precond_src('MIP')
-    mip_eq = mip.mip(self.param,self.fe,self.tol)
+    mip_eq = mip.mip(self.param,self.fe,self.tol,self.output_file)
     self.mip_flxm = mip_eq.solve(mip_src)
     
 #----------------------------------------------------------------------------#
@@ -177,7 +180,8 @@ class transport_solver(object) :
             self.param.fokker_planck,self.param.TC,self.param.optimal,
             self.param.preconditioner,self.param.multigrid,self.param.L_max/2,
             self.param.sn/2,level=1,max_level=self.param.max_level)
-        coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter)
+        coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter,
+            self.output_file)
         solution = coarse_solver.mv(y)
         y += self.project_vector(solution)
 
@@ -190,11 +194,12 @@ class transport_solver(object) :
         sol = y-flxm
       elif self.param.level>self.param.max_level :
         if self.param.preconditioner=='MIP' :
-          precond = mip.mip(self.param,self.fe,self.tol/1e+2)
+          precond = mip.mip(self.param,self.fe,self.tol/1e+2,self.output_file)
           delta = precond.solve(y)
           sol = delta
         elif self.param.preconditioner=='P1SA' :
-          precond = p1sa.p1sa(self.param,self.fe,self.tol/1e+2)
+          precond = p1sa.p1sa(self.param,self.fe,self.tol/1e+2,
+              self.output_file)
           delta = precond.solve(y)
           sol = delta
         else :
@@ -205,7 +210,8 @@ class transport_solver(object) :
             self.param.fokker_planck,self.param.TC,self.param.optimal,
             self.param.preconditioner,self.param.multigrid,self.param.L_max/2,
             self.param.sn/2,level=self.param.level+1,max_level=self.param.max_level)
-        coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter)
+        coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter,
+            self.output_file)
         solution = coarse_solver.mv(z)
         solution_proj = self.project_vector(solution)
         z += solution_proj
@@ -467,3 +473,14 @@ class transport_solver(object) :
           self.param.n_cells]
     
     return restriction  
+
+#----------------------------------------------------------------------------#
+
+  def print_message(self,a) :
+    """Print the given message a on the screen or in a file."""
+
+    if self.param.print_to_file==True :
+      self.output_file.write(a+'\n')
+    else :
+      print a 
+

@@ -35,9 +35,10 @@ sn = 8
 filename = 'transport'
 
 # Driver of the program
+output_file = open(filename+'.txt','w')
 param = parameters.parameters(galerkin,fokker_planck,TC,optimal,preconditioner,
     multigrid,L_max,sn)
-solver = transport_solver.transport_solver(param,tol,max_it)
+solver = transport_solver.transport_solver(param,tol,max_it,output_file)
 solver.solve()
 out = output.output(filename,solver.flux_moments,solver.p1sa_flxm,
     solver.mip_flxm,param)

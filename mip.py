@@ -19,9 +19,9 @@ import synthetic_acceleration as sa
 class mip(sa.synthetic_acceleration) :
   """Preconditioner for the transport using the MIP equation."""
 
-  def __init__(self,parameters,fe,tol) :
+  def __init__(self,parameters,fe,tol,output_file) :
 
-    super(mip,self).__init__(parameters,fe,tol)
+    super(mip,self).__init__(parameters,fe,tol,output_file)
 
 #----------------------------------------------------------------------------#
 
@@ -32,8 +32,8 @@ class mip(sa.synthetic_acceleration) :
     self.cg_iteration += 1
     res = scipy.linalg.norm(residual)
     if self.param.verbose==2 :
-      print ' L2-norm of the residual for iteration %i'%self.cg_iteration +\
-          ' : %f'%scipy.linalg.norm(residual)
+      self.print_message(' L2-norm of the residual for iteration %i'\
+          %self.cg_iteration + ' : %f'%scipy.linalg.norm(residual))
 
 #----------------------------------------------------------------------------#
 
@@ -57,7 +57,7 @@ class mip(sa.synthetic_acceleration) :
       flux,flag = scipy.sparse.linalg.cg(A,self.mip_b,tol=self.tol,
           callback=self.count_cg_iterations)
       if flag!=0 :
-        print 'MIP did not converge'
+        self.print_message('MIP did not converge')
     else :
       A = self.build_lhs()
       A = A.tocsr()
@@ -66,7 +66,7 @@ class mip(sa.synthetic_acceleration) :
         flux,flag = scipy.sparse.linalg.cg(A,self.mip_b,tol=self.tol,
             M=P,callback=self.count_cg_iterations)
         if flag!=0 :
-          print 'MIP did not converge'
+          self.print_message('MIP did not converge')
       else :  
         resvec = []
         Agg = pyamg.aggregation.standard_aggregation(A)
@@ -78,9 +78,9 @@ class mip(sa.synthetic_acceleration) :
           flux = ml.solve(b=self.mip_b,tol=self.tol,residuals=resvec)
         if self.param.verbose==2 :
           rho = pyamg.util.linalg.approximate_spectral_radius(A,symmetric=True)
-          print 'The approximate spectral radius is %f'%rho
-          print ml
-          print resvec   
+          self.print_message( 'The approximate spectral radius is %f'%rho)
+          self.print_message(ml)
+          self.print_message(resvec)
 
 # Project the MIP solution on the whole space
     krylov_space_size = x.shape[0]

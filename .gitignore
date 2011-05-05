@@ -2,3 +2,9 @@
 *.pyc
 *.npz
 *test*
+*.so
+*build*
+_*
+*.txt
+*.cxx
+cg.py

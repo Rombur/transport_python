@@ -24,7 +24,7 @@ class parameters(object) :
     self.src_id = np.array([[0]])
     self.src = np.array([0.])
     self.width = np.array([5.,5.])
-    self.n_div = np.array([3,3])
+    self.n_div = np.array([2,2])
     size = self.mat_id.shape
     self.n_x = self.n_div[0]*size[0]
     self.n_y = self.n_div[1]*size[1]
@@ -91,6 +91,9 @@ class parameters(object) :
 # accelerate a Krylov solver. Otherwise the multigrid is used in standalone
     self.accel = False
     self.verbose = 2
+# If print_to_file is True, the message are written on a file, otherwise they
+# are printed on the scree
+    self.print_to_file = False
 
 #----------------------------------------------------------------------------#
 

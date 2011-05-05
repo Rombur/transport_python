@@ -14,11 +14,12 @@ class synthetic_acceleration(object) :
   """This class is the base class for the synthetic acceleration : DSA and
   P1SA."""
 
-  def __init__(self,parameters,fe,tol) :
+  def __init__(self,parameters,fe,tol,output_file) :
     self.param = parameters
     self.fe = fe
     self.tol = tol
-
+    self.output_file = output_file
+    
 #----------------------------------------------------------------------------#
 
   def solve(self,x) :
@@ -141,7 +142,7 @@ class synthetic_acceleration(object) :
       if next_cell=='top' :
         offset = 4*self.param.n_x-1
       else :
-        print 'Illegal cell.'
+        self.print_message('Illegal cell.')
 
     return offset
 
@@ -162,3 +163,13 @@ class synthetic_acceleration(object) :
         Jdotn = 1.
 
     return Jdotn    
+
+#----------------------------------------------------------------------------#
+
+  def print_message(self,a) :
+    """Print the given message a on the screen or in a file."""
+
+    if self.param.print_to_file==True :
+      self.output_file.write(a+'\n')
+    else :
+      print a 

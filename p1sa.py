@@ -16,9 +16,9 @@ import synthetic_acceleration as sa
 class p1sa(sa.synthetic_acceleration)  :
   """Preconditioner for the transport equation using the P1SA equation."""
 
-  def __init__(self,parameters,fe,tol) :
+  def __init__(self,parameters,fe,tol,output_file) :
 
-    super(p1sa,self).__init__(parameters,fe,tol)
+    super(p1sa,self).__init__(parameters,fe,tol,output_file)
 
 #----------------------------------------------------------------------------#
 
@@ -29,8 +29,8 @@ class p1sa(sa.synthetic_acceleration)  :
     self.bicgstab_iteration += 1
     res = scipy.linalg.norm(residual)
     if self.param.verbose==2 :
-      print ' L2-norm of the residual for iteration %i'%self.bicgstab_iteration+\
-          ' : %f'%scipy.linalg.norm(residual)
+      self.print_message(' L2-norm of the residual for iteration %i'\
+          %self.bicgstab_iteration+' : %f'%scipy.linalg.norm(residual))
 
 #----------------------------------------------------------------------------#
 
@@ -64,7 +64,7 @@ class p1sa(sa.synthetic_acceleration)  :
       flux,flag = scipy.sparse.linalg.bicgstab(A,self.p1sa_b,tol=self.tol)
 
     if flag!=0 :
-      print 'P1SA did not converge.'
+      self.print_message('P1SA did not converge.')
 
 # Project the P1SA solution on the whole space
     krylov_space_size = x.shape[0]
