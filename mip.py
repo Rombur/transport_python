@@ -14,6 +14,7 @@ import scipy.linalg
 import scipy.sparse.extract
 import scipy.sparse.linalg
 import pyamg
+import cg
 import synthetic_acceleration as sa
 
 class mip(sa.synthetic_acceleration) :
@@ -61,12 +62,22 @@ class mip(sa.synthetic_acceleration) :
     else :
       A = self.build_lhs()
       A = A.tocsr()
-      P = self.compute_ssor(A)
       if self.param.pyamg==False :  
-        flux,flag = scipy.sparse.linalg.cg(A,self.mip_b,tol=self.tol,
-            M=P,callback=self.count_cg_iterations)
-        if flag!=0 :
-          self.print_message('MIP did not converge')
+        if self.param.my_cg==True :
+          rows,columns,values = scipy.sparse.extract.find(A)
+          flux = np.zeros([self.size])
+          iteration = np.array([0],dtype='int32')
+          print self.mip_b
+          cg.pcg(values,rows,columns,self.mip_b,flux,self.tol,iteration)
+          print flux
+          if self.param.verbose==2 :
+            self.print_message(' Converged after %i'%iteration+' iterations')
+        else :
+          P = self.compute_ssor(A)
+          flux,flag = scipy.sparse.linalg.cg(A,self.mip_b,tol=self.tol,
+              M=P,callback=self.count_cg_iterations)
+          if flag!=0 :
+            self.print_message('MIP did not converge')
       else :  
         resvec = []
         Agg = pyamg.aggregation.standard_aggregation(A)

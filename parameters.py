@@ -87,6 +87,9 @@ class parameters(object) :
 # If the matrix is build and pyamg is True, the preconditioner is solve using
 # a algebraic multigrid method
     self.pyamg = False
+# If MIP is solved using CG and my_cg is True, then my own implementation of
+# CG is used. Otherwise the CG of scipy is used
+    self.my_cg = True
 # If a multigrid method is used and accel is True, the multigrid is used to
 # accelerate a Krylov solver. Otherwise the multigrid is used in standalone
     self.accel = False

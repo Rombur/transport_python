@@ -11,7 +11,7 @@
     import_array();
 %}
 
-%apply (int* INPLACE_ARRAY1, int DIM1) {(int* lines, int n_lines),(int* cols,int n_cols)}
+%apply (int* INPLACE_ARRAY1, int DIM1) {(int* lines, int n_lines),(int*cols,int n_cols),(int* iter, int n_iter)}
 %apply (double* INPLACE_ARRAY1, int DIM1) {(double* val, int n_val),(double* rhs, int n_rhs),(double* solution, int n_solution)}
 
 %include "cg.hh"

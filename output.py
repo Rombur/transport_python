@@ -50,7 +50,9 @@ class output(object) :
   def write_in_file(self) :
     """Write the moment flux and the mesh in a file."""
 
-# Write the mesh  and the flux
+# Write the mesh and the flux
     np.savez(self.filename,x=self.x,y=self.y,
       flux_moments=self.flux_moments,p1sa_flxm=self.p1sa_flxm,
       mip_flxm=self.mip_flxm)
+# Write the flux_moments in a compressed files
+    np.savetxt(self.filename+'.gz',self.flux_moments)

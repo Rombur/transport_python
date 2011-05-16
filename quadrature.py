@@ -39,7 +39,7 @@ class quadrature(object)  :
 
     self.cos_theta = np.zeros((self.sn/2,1))
     for i in xrange(0,self.sn/2) :
-      self.cos_theta[i] = self.polar_nodes[self.sn/2+i]
+      self.cos_theta[i] = np.real(self.polar_nodes[self.sn/2+i])
     self.sin_theta = np.sqrt(1-self.cos_theta**2)
 
 # Compute omega on one octant
