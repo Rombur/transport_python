@@ -87,27 +87,36 @@ void cg(double* a_values, int n_values, int* a_lines, int n_lines,
   // Compute the norm of the residual
   double rs_old = dot_product(r,r);
 
-  for (unsigned int i=0; i<size; ++i)
-  {
-    double alpha,denom,rs_new;
-    d_vector Ap;
-    
-    Ap = mv_multiplication(values,lines,columns,p);
-    denom = dot_product(p,Ap);
-    alpha = rs_old/denom;
-    solution = vv_addition(solution,p,alpha);
-    r = vv_substraction(r,Ap,alpha);  
-    rs_new = dot_product(r,r);
-    
-    cout<<"iteration "<<i<<", "<<rs_new<<endl;
-    if (sqrt(rs_new)<tol)
-    {
-      cout<<"converged"<<endl;
-      break;
-    }
+  // If the rhs is zero the solution is zeros
+  bool r_is_zero(true);
+  for (unsigned int i=0; i<size && r_is_zero; ++i)
+    if (r[i]<-1e-20 || r[i]>1e-20)
+      r_is_zero = false;
 
-    p = vv_addition(r,p,rs_new/rs_old);
-    rs_old = rs_new;
+  if (r_is_zero==false)
+  {
+    for (unsigned int i=0; i<size; ++i)
+    {
+      double alpha,denom,rs_new;
+      d_vector Ap;
+
+      Ap = mv_multiplication(values,lines,columns,p);
+      denom = dot_product(p,Ap);
+      alpha = rs_old/denom;
+      solution = vv_addition(solution,p,alpha);
+      r = vv_substraction(r,Ap,alpha);  
+      rs_new = dot_product(r,r);
+
+      cout<<"iteration "<<i<<", "<<rs_new<<endl;
+      if (sqrt(rs_new)<tol)
+      {
+        cout<<"converged"<<endl;
+        break;
+      }
+
+      p = vv_addition(r,p,rs_new/rs_old);
+      rs_old = rs_new;
+    }
   }
 
   // Copy the solution in the array solution
@@ -305,7 +314,7 @@ void pcg(double* a_values, int n_values, int* a_lines, int n_lines,
   // If the rhs is zero the solution is zeros
   bool r_is_zero(true);
   for (unsigned int i=0; i<size && r_is_zero; ++i)
-    if (r[i]<-1e-20 && r[i]>1e-20)
+    if (r[i]<-1e-20 || r[i]>1e-20)
       r_is_zero = false;
 
   if (r_is_zero==false)

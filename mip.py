@@ -67,9 +67,7 @@ class mip(sa.synthetic_acceleration) :
           rows,columns,values = scipy.sparse.extract.find(A)
           flux = np.zeros([self.size])
           iteration = np.array([0],dtype='int32')
-          print self.mip_b
           cg.pcg(values,rows,columns,self.mip_b,flux,self.tol,iteration)
-          print flux
           if self.param.verbose==2 :
             self.print_message(' Converged after %i'%iteration+' iterations')
         else :
