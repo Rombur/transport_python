@@ -99,7 +99,7 @@ class transport_solver(object) :
       A = scipy.sparse.linalg.LinearOperator((size,size),matvec=self.mv,
           rmatvec=None,dtype=float)
       self.flux_moments,flag = scipy.sparse.linalg.gmres(A,self.gmres_b,x0=None,
-          tol=self.tol,restrt=20,maxiter=self.max_iter,M=None,
+          tol=self.tol,restrt=1000,maxiter=self.max_iter,M=None,
           callback=self.count_gmres_iterations)
 
       if flag != 0 :

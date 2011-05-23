@@ -180,7 +180,7 @@ class mip(sa.synthetic_acceleration) :
 
   def compute_penalty_coefficient(self,dof,edge_offset,D_minus,D_plus,h_minus,
       h_plus,interior) :
-    """Compute the penalty coeffiecient used by MIP"""
+    """Compute the penalty coefficient used by MIP"""
 
     C = 2.
 # Only use first order polynomial -> c(p^+) = c(p^-)
@@ -482,7 +482,7 @@ class mip(sa.synthetic_acceleration) :
           for j in xrange(0,4) :
             j_pos = self.index(j,next_cell)
   
-            x[i_pos,j_pos] += D_minus/2.*out_across_edge_deln_matrix[i,j]
+            x[i_pos,j_pos] += D_minus/2.*in_across_edge_deln_matrix[i,j]
             x[i_pos,j_pos] -= D_plus/2.*out_across_edge_deln_matrix[j,i]
 
 # Mixte terms (-,+) 
@@ -491,8 +491,9 @@ class mip(sa.synthetic_acceleration) :
           for j in xrange(0,4) :
             j_pos = self.index(j,cell)
 
-            x[i_pos,j_pos] -= D_plus/2.*in_across_edge_deln_matrix[i,j]
             x[i_pos,j_pos] += D_minus/2.*in_across_edge_deln_matrix[j,i]
+            x[i_pos,j_pos] -= D_plus/2.*out_across_edge_deln_matrix[i,j]
+
       else :
         is_vertical = self.compute_vertical(edge,inside)
         Jdotn = self.compute_Jdotn(edge,is_vertical)

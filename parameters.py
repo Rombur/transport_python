@@ -45,29 +45,32 @@ class parameters(object) :
       utils.abort('inc_bottom has a wrong size.')
     self.resize()
 # material property
+    self.alpha = np.array([1.])
+    self.level = level
+    self.max_level = max_level
+    if level==0 :
+      tmp_sn = sn
+      if preconditioner=='P1SA':
+        while tmp_sn>4 :
+          self.max_level += 1
+          tmp_sn /= 2
+      else :
+        while tmp_sn>2 :
+          self.max_level += 1
+          tmp_sn /= 2
     self.L_max = L_max
     self.sig_t = np.array([36.])
     self.fokker_planck = fokker_planck
     if fokker_planck == False :
-      self.sig_s = np.zeros((40,1))
-      self.sig_s[0,0] = 1.
+      self.sig_s = np.zeros((sn*(sn+2)/2,1))
+      self.sig_s[0,0] = 100.
     else :
-      self.alpha = 1
-      self.level = level
-      self.max_level = max_level
-      if level==0 :
-        tmp_sn = sn
-        if preconditioner=='P1SA':
-          while tmp_sn>4 :
-            self.max_level += 1
-            tmp_sn /= 2
-        else :
-          while tmp_sn>2 :
-            self.max_level += 1
-            tmp_sn /= 2
-      self.fokker_planck_xs()
-    if self.sig_s[0]>self.sig_t :
-      utils.abort('sig_s[0] is greater than sig_t.')
+      size = self.L_max*(self.L_max+2)/2
+      self.sig_s = np.zeros((size,self.alpha.shape[0]))
+      self.fokker_planck_xs(size)
+    for i_mat in xrange(0,self.alpha.shape[0]) :
+      if self.sig_s[0,i_mat]>self.sig_t[i_mat] :
+        utils.abort('sig_s[0] is greater than sig_t.')
     self.n_mom = self.sig_s.shape[0]
 # Sn property
     self.galerkin = galerkin
@@ -108,26 +111,26 @@ class parameters(object) :
 
     mat_id_tmp = np.zeros([new_i_size,new_j_size])
     src_id_tmp = np.zeros([new_i_size,new_j_size])
-    inc_left_tmp = np.zeros([new_i_size])
-    inc_right_tmp = np.zeros([new_i_size])
-    inc_top_tmp = np.zeros([new_j_size])
-    inc_bottom_tmp = np.zeros([new_j_size])
+    inc_left_tmp = np.zeros([new_j_size])
+    inc_right_tmp = np.zeros([new_j_size])
+    inc_top_tmp = np.zeros([new_i_size])
+    inc_bottom_tmp = np.zeros([new_i_size])
 
     for i in xrange(0,new_i_size) :
       old_i = int(i)/int(self.n_div[0])
-      inc_left_tmp[i] = self.inc_left[old_i]
-      inc_right_tmp[i] = self.inc_right[old_i]
+      inc_bottom_tmp[i] = self.inc_bottom[old_i]
+      inc_top_tmp[i] = self.inc_top[old_i]
       for j in xrange(0,new_j_size) :
         old_j = int(j)/int(self.n_div[1]) 
         mat_id_tmp[i,j] = self.mat_id[old_i,old_j]
         src_id_tmp[i,j] = self.src_id[old_i,old_j]
     for j in xrange(0,new_j_size) :
       old_j = int(j)/int(new_j_size)
-      inc_bottom_tmp[j] = self.inc_bottom[old_j]
-      inc_top_tmp[j] = self.inc_top[old_j]
+      inc_left_tmp[j] = self.inc_left[old_j]
+      inc_right_tmp[j] = self.inc_right[old_j]
 
-    self.mat_id = mat_id_tmp.transpose()
-    self.src_id = src_id_tmp.transpose()
+    self.mat_id = mat_id_tmp
+    self.src_id = src_id_tmp
     self.inc_left = inc_left_tmp
     self.inc_right = inc_right_tmp
     self.inc_top = inc_top_tmp
@@ -135,36 +138,36 @@ class parameters(object) :
 
 #----------------------------------------------------------------------------#
 
-  def fokker_planck_xs(self) :
+  def fokker_planck_xs(self,size) :
     """Compute the Fokker-Planck cross sections."""
 
-    size = self.L_max*(self.L_max+2)/2
-    self.sig_s = np.zeros((size,1))
-   
-    pos = 0
+    for i_mat in xrange(0,self.alpha.shape[0]) :
+      pos = 0
 # Compute the effective L_max used by the angular multigrid
-    L_max_eff = 2.**self.level*self.L_max
-    for i in xrange(0,self.L_max) :
-      for j in xrange(0,i+1) :
-        self.sig_s[pos] = self.alpha/2.0*(L_max_eff*(L_max_eff+1)-i*(i+1))
-        pos += 1
-    if self.level!=0 :
-      for i in xrange(pos,size) :
-        self.sig_s[i] = self.alpha/2.0*(L_max_eff*(L_max_eff+1)-self.L_max*\
-            (self.L_max+1))
+      L_max_eff = 2.**self.level*self.L_max
+      for i in xrange(0,self.L_max) :
+        for j in xrange(0,i+1) :
+          self.sig_s[pos,i_mat] = self.alpha[i_mat]/2.0*(L_max_eff*\
+              (L_max_eff+1)-i*(i+1))
+          pos += 1
+      if self.level!=0 :
+        for i in xrange(pos,size) :
+          self.sig_s[i,i_mat] = self.alpha[i_mat]/2.0*(L_max_eff*\
+              (L_max_eff+1)-self.L_max*(self.L_max+1))
 
 #----------------------------------------------------------------------------#
 
   def transport_correction(self) :
     """Compute the transport correction for the cross sections."""
 
-    if self.optimal == True :
-      if self.sig_s.shape[0]>=4 :
-        correction = (self.sig_s[3]+self.sig_s[-1])/2.
+    for i_mat in xrange(0,self.alpha.shape[0]) :
+      if self.optimal == True :
+        if self.sig_s[:,i_mat].shape[0]>=4 :
+          correction = (self.sig_s[3,i_mat]+self.sig_s[-1,i_mat])/2.
+        else :
+          correction = 0.
       else :
-        correction = 0.
-    else :
-      correction = self.sig_s[-1]
-    
-    self.sig_t -= correction
-    self.sig_s -= correction
+        correction = self.sig_s[-1,i_mat]
+      
+      self.sig_t[i_mat] -= correction
+      self.sig_s[:,i_mat] -= correction

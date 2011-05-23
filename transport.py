@@ -25,7 +25,6 @@ optimal = True
 preconditioner = 'MIP'
 # When multigrid is used, a preconditioner has to be applied (P1SA is chosen by
 # default)
-# Multigrid works only when using with Fokker-Planck cross-section
 multigrid = True
 # L_max
 L_max = 8

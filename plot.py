@@ -38,6 +38,7 @@ def create_mayavi(filename) :
   mayavi_mlab.mesh(new_x,new_y,new_scalar_flux,name='transport : scalar flux')
   mayavi_mlab.mesh(new_x,new_y,new_p1sa_scalar_flux,name='p1sa : scalar flux')
   mayavi_mlab.mesh(new_x,new_y,new_mip_scalar_flux,name='mip : scalar flux')
+  mayavi_mlab.show()
 #  mayavi_pipeline.array2d_source(x,y,new_scalar_flux,name='2D')
 #  mayavi_mlab.surf(x,y,new_scalar_flux,name='3D')
 
