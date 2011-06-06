@@ -115,31 +115,60 @@ class transport_solver(object) :
       solution = coarse_solver.mv(y)
       self.flux_moments += self.project_vector(solution)
     else :
+      if self.param.gmres==True :
 # Compute the uncollided flux moment (D*inv(L)*q) = rhs of gmres
-      gmres_rhs = True
-      self.scattering_src = np.zeros((self.param.n_mom,4*self.param.n_cells))
-      self.gmres_b = self.sweep(gmres_rhs)
+        gmres_rhs = True
+        self.scattering_src = np.zeros((self.param.n_mom,4*self.param.n_cells))
+        self.gmres_b = self.sweep(gmres_rhs)
 
 # GMRES solver 
-      self.gmres_iteration = 0                
-      size = self.gmres_b.shape[0]
-      A = scipy.sparse.linalg.LinearOperator((size,size),matvec=self.mv,
-          rmatvec=None,dtype=float)
-      self.flux_moments,flag = scipy.sparse.linalg.gmres(A,self.gmres_b,x0=None,
-          tol=self.tol,restrt=20,maxiter=self.max_iter,M=None,
-          callback=self.count_gmres_iterations)
+        self.gmres_iteration = 0                
+        size = self.gmres_b.shape[0]
+        A = scipy.sparse.linalg.LinearOperator((size,size),matvec=self.mv,
+            rmatvec=None,dtype=float)
+        self.flux_moments,flag = scipy.sparse.linalg.gmres(A,self.gmres_b,x0=None,
+            tol=self.tol,restrt=20,maxiter=self.max_iter,M=None,
+            callback=self.count_gmres_iterations)
 
-      if flag != 0 :
-        self.print_message('Transport did not converge.')
+        if flag != 0 :
+          self.print_message('Transport did not converge.')
 
-      if self.param.preconditioner=='P1SA' :
-        precond = p1sa.p1sa(self.param,self.fe,self.tol/1e+2)
-        delta = precond.solve(self.flux_moments)
-        self.flux_moments += delta
-      elif self.param.preconditioner=='MIP' :
-        precond = mip.mip(self.param,self.fe,self.tol/1e+2)
-        delta = precond.solve(self.flux_moments)
-        self.flux_moments += delta
+        if self.param.preconditioner=='P1SA' :
+          precond = p1sa.p1sa(self.param,self.fe,self.tol/1e+2,self.output_file)
+          delta = precond.solve(self.flux_moments)
+          self.flux_moments += delta
+        elif self.param.preconditioner=='MIP' :
+          precond = mip.mip(self.param,self.fe,self.tol/1e+2,self.output_file)
+          delta = precond.solve(self.flux_moments)
+          self.flux_moments += delta
+      else :
+        rhs = True
+        self.flux_moments = np.zeros((4*self.param.n_cells*self.param.n_mom))
+        flux_moments_old = np.zeros((4*self.param.n_cells*self.param.n_mom))
+        for i in xrange(0,self.max_iter) :
+          self.compute_scattering_source(flux_moments_old)
+          self.flux_moments = self.sweep(rhs)
+
+          if self.param.preconditioner=='P1SA' :
+            precond = p1sa.p1sa(self.param,self.fe,self.tol/1e+2,self.output_file)
+            delta = precond.solve(self.flux_moments-flux_moments_old)
+            self.flux_moments += delta
+
+          elif self.param.preconditioner=='MIP' :
+            precond = mip.mip(self.param,self.fe,self.tol/1e+2,self.output_file)
+            delta = precond.solve(self.flux_moments-flux_moments_old)
+            self.flux_moments += delta
+
+          conv = scipy.linalg.norm(self.flux_moments-flux_moments_old)/\
+              scipy.linalg.norm(self.flux_moments)
+
+          self.print_message('L2-norm of the residual for iteration %i'\
+              %i+' : %f'%conv)
+          if conv<self.tol :
+            break
+
+          flux_moments_old = self.flux_moments.copy()
+
     end = time.time()
     self.print_message('Elapsed time to solve the problem : %f'%(end-start))
 
@@ -150,6 +179,7 @@ class transport_solver(object) :
 
 # Solve the MIP equation
     mip_src = self.compute_precond_src('MIP')
+    self.param.projection = 'scalar'
     mip_eq = mip.mip(self.param,self.fe,self.tol,self.output_file)
     self.mip_flxm = mip_eq.solve(mip_src)
     
@@ -206,10 +236,19 @@ class transport_solver(object) :
           sol = y
       else :
         z = self.restrict_vector(y)
+        if self.param.sn!=6 :
+          new_L_max = self.param.L_max/2
+          new_sn = self.param.sn/2
+          new_level = self.param.level+1
+        else :
+          new_L_max = 4
+          new_sn = 4
+          new_level = self.param.level+0.5849625007211562
+
         coarse_param = parameters.parameters(self.param.galerkin,
             self.param.fokker_planck,self.param.TC,self.param.optimal,
-            self.param.preconditioner,self.param.multigrid,self.param.L_max/2,
-            self.param.sn/2,level=self.param.level+1,max_level=self.param.max_level)
+            self.param.preconditioner,self.param.multigrid,new_L_max,
+            new_sn,level=new_level,max_level=self.param.max_level)
         coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter,
             self.output_file)
         solution = coarse_solver.mv(z)
@@ -225,11 +264,11 @@ class transport_solver(object) :
         sol = flxm
     else :
       if self.param.preconditioner=='P1SA' :
-        precond = p1sa.p1sa(self.param,self.fe,self.tol/1e+2)
+        precond = p1sa.p1sa(self.param,self.fe,self.tol/1e+2,self.output_file)
         delta = precond.solve(x.copy())
         y += delta
       elif self.param.preconditioner=='MIP' :
-        precond = mip.mip(self.param,self.fe,self.tol/1e+2)
+        precond = mip.mip(self.param,self.fe,self.tol/1e+2,self.output_file)
         delta = precond.solve(x.copy())
         y += delta
 

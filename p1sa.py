@@ -83,16 +83,20 @@ class p1sa(sa.synthetic_acceleration)  :
     y_current_offset = 2*n_dofs*self.param.n_cells
 
     for cell in xrange(0,self.param.n_cells) :
+      ii,jj = self.cell_mapping(cell)
+      i_mat = self.param.mat_id[ii,jj]
+      sig_s0 = self.param.sig_s[0,i_mat]
+      sig_s1 = self.param.sig_s[1,i_mat]
       for i in xrange(0,n_dofs) :
         pos_i = self.index(i,cell)
         for j in xrange(0,n_dofs) :
           pos_j = self.index(j,cell)
-          self.p1sa_b[pos_i] += self.fe.mass_matrix[i,j]*\
+          self.p1sa_b[pos_i] += sig_s0*self.fe.mass_matrix[i,j]*\
               self.krylov_vector[pos_j]
-          self.p1sa_b[pos_i+x_current_offset] += 3.*self.fe.mass_matrix[i,j]*\
-              self.krylov_vector[pos_j+x_current_offset]
-          self.p1sa_b[pos_i+y_current_offset] += 3.*self.fe.mass_matrix[i,j]*\
-              self.krylov_vector[pos_j+y_current_offset]
+          self.p1sa_b[pos_i+x_current_offset] += 3.*sig_s1*\
+              self.fe.mass_matrix[i,j]*self.krylov_vector[pos_j+x_current_offset]
+          self.p1sa_b[pos_i+y_current_offset] += 3.*sig_s1*\
+              self.fe.mass_matrix[i,j]*self.krylov_vector[pos_j+y_current_offset]
 
 #----------------------------------------------------------------------------#
 

@@ -63,17 +63,31 @@ class parameters(object) :
     self.fokker_planck = fokker_planck
     if fokker_planck == False :
       self.sig_s = np.zeros((sn*(sn+2)/2,1))
+      if sn==1 :
+        self.sig_s = np.zeros((4,1))
       self.sig_s[0,0] = 100.
     else :
-      size = self.L_max*(self.L_max+2)/2
-      self.sig_s = np.zeros((size,self.alpha.shape[0]))
-      self.fokker_planck_xs(size)
+      if sn==1 :
+        self.L_max = 2
+        self.level -= 1
+        size = self.L_max*(self.L_max+2)/2
+        self.sig_s = np.zeros((size,self.alpha.shape[0]))
+        self.fokker_planck_xs(size)
+        self.L_max = 1
+        self.level += 1
+      else :
+        size = self.L_max*(self.L_max+2)/2
+        self.sig_s = np.zeros((size,self.alpha.shape[0]))
+        self.fokker_planck_xs(size)
     for i_mat in xrange(0,self.alpha.shape[0]) :
       if self.sig_s[0,i_mat]>self.sig_t[i_mat] :
         utils.abort('sig_s[0] is greater than sig_t.')
     self.n_mom = self.sig_s.shape[0]
 # Sn property
+    self.multigrid = multigrid
     self.galerkin = galerkin
+# Projection on the scalar flux (scalar) or the scalar flux + current (current)
+    self.projection = 'scalar'
     if self.galerkin == False :
       self.sn = sn
     else :
@@ -84,7 +98,6 @@ class parameters(object) :
         self.transport_correction()
 # Solver properties
     self.preconditioner = preconditioner
-    self.multigrid = multigrid
 # If matrix_free is True, the preconditioner matrix is not build
     self.matrix_free = False
 # If the matrix is build and pyamg is True, the preconditioner is solve using
@@ -100,6 +113,8 @@ class parameters(object) :
 # If print_to_file is True, the message are written on a file, otherwise they
 # are printed on the scree
     self.print_to_file = False
+# Toggle between SI and GMRES when multigrid is not use
+    self.gmres = True
 
 #----------------------------------------------------------------------------#
 
@@ -144,7 +159,8 @@ class parameters(object) :
     for i_mat in xrange(0,self.alpha.shape[0]) :
       pos = 0
 # Compute the effective L_max used by the angular multigrid
-      L_max_eff = 2.**self.level*self.L_max
+      level = self.level
+      L_max_eff = 2.**level*self.L_max
       for i in xrange(0,self.L_max) :
         for j in xrange(0,i+1) :
           self.sig_s[pos,i_mat] = self.alpha[i_mat]/2.0*(L_max_eff*\
@@ -160,12 +176,38 @@ class parameters(object) :
   def transport_correction(self) :
     """Compute the transport correction for the cross sections."""
 
+    position={'1':0,'2':1,'4':6,'6':15,'8':15,'12':28,'16':45}
     for i_mat in xrange(0,self.alpha.shape[0]) :
       if self.optimal == True :
-        if self.sig_s[:,i_mat].shape[0]>=4 :
-          correction = (self.sig_s[3,i_mat]+self.sig_s[-1,i_mat])/2.
+        if self.multigrid=='False' :
+          if self.preconditioner=='P1SA' :
+            if self.sig_s[:,i_mat].shape[0]>=4 :
+              correction = (self.sig_s[3,i_mat]+self.sig_s[-1,i_mat])/2.
+            else :
+              correction = 0.
+          else :
+            if self.sig_s[:,i_mat].shape[0]>=2 and self.projection=='scalar' :
+              correction = (self.sig_s[1,i_mat]+self.sig_s[-1,i_mat])/2.
+            elif self.sig_s[:,i_mat].shape[0]>=4 and self.projection=='current' :
+              correction = (self.sig_s[3,i_mat]+self.sigs_s[-1,i_mat])/2.
+            else :
+              correction = 0.
         else :
-          correction = 0.
+          if self.sig_s[:,i_mat].shape[0]>=2 and self.projection=='scalar' :
+            pos = position[str(self.sn)]
+            if pos!=0 :
+              correction = (self.sig_s[pos]+self.sig_s[-1,i_mat])/2
+            else :
+              correction = 0.
+          elif self.sig_s[:,i_mat].shape[0]>=4 and self.projection=='current' :
+            pos = position[str(self.sn)]
+            if pos!=0 :
+              correction = (self.sig_s[pos]+self.sig_s[-1,i_mat])/2
+            else :
+              correction = 0.
+          else :
+            correction = 0.
+
       else :
         correction = self.sig_s[-1,i_mat]
       

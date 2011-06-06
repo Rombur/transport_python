@@ -11,7 +11,7 @@ import output
 # Tolerance for GMRES
 tol = 1e-4
 # Maximum number of iterations fo GMRES
-max_it = 1000
+max_it = 10000
 # If galerkin is True, sn = L_max -> the value of sn is not read
 galerkin = True
 # If True uses Fokker-Planck cross-section
@@ -24,7 +24,7 @@ optimal = True
 # Preconditioner used : 'None', 'P1SA' or 'MIP'
 preconditioner = 'MIP'
 # When multigrid is used, a preconditioner has to be applied (P1SA is chosen by
-# default)
+# default). 
 multigrid = True
 # L_max
 L_max = 8

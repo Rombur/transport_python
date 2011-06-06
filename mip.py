@@ -85,16 +85,20 @@ class mip(sa.synthetic_acceleration) :
           flux = ml.solve(b=self.mip_b,tol=self.tol,accel='cg',residuals=resvec)
         else :
           flux = ml.solve(b=self.mip_b,tol=self.tol,residuals=resvec)
-        if self.param.verbose==2 :
-          rho = pyamg.util.linalg.approximate_spectral_radius(A,symmetric=True)
-          self.print_message( 'The approximate spectral radius is %f'%rho)
-          self.print_message(ml)
-          self.print_message(resvec)
+#        if self.param.verbose==2 :
+#          rho = pyamg.util.linalg.approximate_spectral_radius(A,symmetric=True)
+#          self.print_message( 'The approximate spectral radius is %f'%rho)
+#          self.print_message(ml)
+#          self.print_message(resvec)
 
 # Project the MIP solution on the whole space
     krylov_space_size = x.shape[0]
     output = np.zeros([krylov_space_size])
-    output[0:self.size] = flux[:]
+    if self.param.projection=='scalar' :
+      output[0:self.size] = flux[:]
+    else :
+      output[0:self.size] = flux[:]
+      self.full_projection(output,flux)
 
     return output
 
@@ -104,11 +108,14 @@ class mip(sa.synthetic_acceleration) :
     """Compute the rhs of the MIP equation."""
 
     for cell in xrange(0,self.param.n_cells) :
+      ii,jj = self.cell_mapping(cell) 
+      i_mat = self.param.mat_id[ii,jj]
+      sig_s = self.param.sig_s[0,i_mat] 
       for i in xrange(0,self.fe.n_dofs_per_cell) :
         pos_i = self.index(i,cell)
         for j in xrange(0,self.fe.n_dofs_per_cell) :
           pos_j = self.index(j,cell)
-          self.mip_b[pos_i] += self.fe.mass_matrix[i,j]*\
+          self.mip_b[pos_i] += sig_s*self.fe.mass_matrix[i,j]*\
               self.krylov_vector[pos_j]
 
 #----------------------------------------------------------------------------#
@@ -152,9 +159,8 @@ class mip(sa.synthetic_acceleration) :
     cell = np.floor(dof/dofs_per_cell)
     i,j = self.cell_mapping(cell) 
     i_mat = self.param.mat_id[i,j]
-    sig_a = self.param.sig_t[i_mat]-self.param.sig_s[0,i_mat] 
 # Compute the diffusion coefficient D
-    if self.param.sig_s.shape[0]>1 :
+    if self.param.sig_s[:,i_mat].shape[0]>1 :
       sig_tr = self.param.sig_t[i_mat]-self.param.sig_s[1,i_mat]
     else :
       sig_tr = self.param.sig_t[i_mat]
@@ -164,9 +170,8 @@ class mip(sa.synthetic_acceleration) :
       cell = np.floor((dof+edge_offset)/dofs_per_cell)
       i,j = self.cell_mapping(cell) 
       i_mat = self.param.mat_id[i,j]
-      sig_a = self.param.sig_t[i_mat]-self.param.sig_s[0,i_mat] 
 # Compute the diffusion coefficient D
-      if self.param.sig_s.shape[0]>1 :
+      if self.param.sig_s[:,i_mat].shape[0]>1 :
         sig_tr = self.param.sig_t[i_mat]-self.param.sig_s[1,i_mat]
       else :
         sig_tr = self.param.sig_t[i_mat]
@@ -191,7 +196,7 @@ class mip(sa.synthetic_acceleration) :
     else :
       k = c_p*D_minus/h_minus
 
-    k_mip = np.max(k,0.25)
+    k_mip = np.max([k,0.25])
 
     return k_mip
 
@@ -309,7 +314,7 @@ class mip(sa.synthetic_acceleration) :
 
             x[i_pos] += D_minus/2.*in_across_edge_deln_matrix[i,j]*\
                 x_krylov[j_pos]
-            x[i_pos] -= D_plus/2.*in_across_edge_deln_matrix[j,i]*\
+            x[i_pos] -= D_plus/2.*out_across_edge_deln_matrix[j,i]*\
                 x_krylov[j_pos]
 
 ## Mixte terms (-,+) 
@@ -320,7 +325,7 @@ class mip(sa.synthetic_acceleration) :
 
             x[i_pos] -= D_plus/2.*out_across_edge_deln_matrix[i,j]*\
               x_krylov[j_pos]
-            x[i_pos] += D_minus/2.*out_across_edge_deln_matrix[j,i]*\
+            x[i_pos] += D_minus/2.*in_across_edge_deln_matrix[j,i]*\
               x_krylov[j_pos]
       else :
         is_vertical = self.compute_vertical(edge,inside)
@@ -376,8 +381,6 @@ class mip(sa.synthetic_acceleration) :
     """Build the matrix of the MIP that will be used by CG and the algebraic
     multigrid method."""
 
-#    A = scipy.sparse.lil_matrix((4*self.param.n_cells,4*self.param.n_cells))
-#    x = np.zeros([4*self.param.n_cells,4*self.param.n_cells])
     x = scipy.sparse.lil_matrix((self.size,self.size))
 
     for cell in xrange(0,self.param.n_cells) :
@@ -541,3 +544,37 @@ class mip(sa.synthetic_acceleration) :
             x[i_pos,j_pos] -= 0.5*D_minus*edge_deln_matrix[j,i]
         
     return x
+
+#----------------------------------------------------------------------------#
+
+  def full_projection(self,output,flux) :
+    """Project the flux on the scalar flux and the current."""
+
+    width_cell = self.fe.width_cell
+
+    for cell in xrange(0,self.param.n_cells) :
+      i,j = self.cell_mapping(cell) 
+      i_mat = self.param.mat_id[i,j]
+      sig_a = self.param.sig_t[i_mat]-self.param.sig_s[0,i_mat] 
+# Compute the diffusion coefficient D
+      if self.param.sig_s.shape[0]>1 :
+        sig_tr = self.param.sig_t[i_mat]-self.param.sig_s[1,i_mat]
+      else :
+        sig_tr = self.param.sig_t[i_mat]
+      D = 1./(3.*sig_tr)
+
+      pos_0 = self.index(0,cell)
+      pos_1 = self.index(1,cell)
+      pos_2 = self.index(2,cell)
+      pos_3 = self.index(3,cell)
+
+      output[self.size+pos_0] = -D*(flux[pos_2]-flux[pos_0])/width_cell[0]
+      output[self.size+pos_1] = -D*(flux[pos_3]-flux[pos_1])/width_cell[0]
+      output[self.size+pos_2] = -D*(flux[pos_2]-flux[pos_0])/width_cell[0]
+      output[self.size+pos_3] = -D*(flux[pos_3]-flux[pos_1])/width_cell[0]
+
+      output[2*self.size+pos_0] = -D*(flux[pos_1]-flux[pos_0])/width_cell[1]
+      output[2*self.size+pos_1] = -D*(flux[pos_1]-flux[pos_0])/width_cell[1]
+      output[2*self.size+pos_2] = -D*(flux[pos_3]-flux[pos_2])/width_cell[1]
+      output[2*self.size+pos_3] = -D*(flux[pos_3]-flux[pos_2])/width_cell[1]
+
