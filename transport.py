@@ -5,7 +5,7 @@
 
 # Driver for the transport code.
 import parameters
-import transport_solver
+import FE_transport_solver
 import output
 
 # Tolerance for GMRES
@@ -37,7 +37,7 @@ filename = 'transport'
 output_file = open(filename+'.txt','w')
 param = parameters.parameters(galerkin,fokker_planck,TC,optimal,preconditioner,
     multigrid,L_max,sn)
-solver = transport_solver.transport_solver(param,tol,max_it,output_file)
+solver = FE_transport_solver.FE_transport_solver(param,tol,max_it,output_file)
 solver.solve()
 out = output.output(filename,solver.flux_moments,solver.p1sa_flxm,
     solver.mip_flxm,param)
