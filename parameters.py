@@ -59,7 +59,10 @@ class parameters(object) :
           self.max_level += 1
           tmp_sn /= 2
     self.L_max = L_max
+    #self.sig_t = np.array([10.])
     self.sig_t = np.array([36.])
+    #self.sig_t = np.array([78.])
+    #self.sig_t = np.array([136.])
     self.fokker_planck = fokker_planck
     if fokker_planck == False :
       self.sig_s = np.zeros((sn*(sn+2)/2,1))
@@ -103,6 +106,8 @@ class parameters(object) :
 # If the matrix is build and pyamg is True, the preconditioner is solve using
 # a algebraic multigrid method
     self.pyamg = False
+# Maximum number of v-cycle allowed to solve MIP
+    self.v_cycle = 50
 # If MIP is solved using CG and my_cg is True, then my own implementation of
 # CG is used. Otherwise the CG of scipy is used
     self.my_cg = True

@@ -21,7 +21,8 @@ import mip
 class transport_solver(object) :
   """Solve the transport equation in 2D for cartesian geometry"""
 
-  def __init__(self,param,tol,max_it,output_file) :
+  def __init__(self,param,tol,max_it,output_file,mv_time=None,
+      mip_time=None) :
 
     super(transport_solver,self).__init__()
     self.tol = tol
@@ -42,6 +43,10 @@ class transport_solver(object) :
        self.most_normal()
 # Save the values to be printed in a file 
     self.output_file = output_file
+# List of time for each MV
+    self.mv_time = mv_time
+# List of time for each MIP
+    self.mip_time = mip_time
 
 #----------------------------------------------------------------------------#
 
@@ -87,6 +92,8 @@ class transport_solver(object) :
     """Solve the transport equation"""
 
     start = time.time()
+    self.mv_time = [[] for i in xrange(0,self.param.sn+1)]
+    self.mip_time = []
     if self.param.multigrid==True :
 # Compute the uncollided flux moment (D*inv(L)*q) = rhs of gmres
       gmres_rhs = True
@@ -99,7 +106,7 @@ class transport_solver(object) :
       A = scipy.sparse.linalg.LinearOperator((size,size),matvec=self.mv,
           rmatvec=None,dtype=float)
       self.flux_moments,flag = scipy.sparse.linalg.gmres(A,self.gmres_b,x0=None,
-          tol=self.tol,restrt=1000,maxiter=self.max_iter,M=None,
+          tol=self.tol,restrt=20,maxiter=self.max_iter,M=None,
           callback=self.count_gmres_iterations)
 
       if flag != 0 :
@@ -111,7 +118,7 @@ class transport_solver(object) :
           self.param.preconditioner,self.param.multigrid,self.param.L_max/2,
           self.param.sn/2,level=1,max_level=self.param.max_level)
       coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter,
-          self.output_file)
+          self.output_file,mv_time=self.mv_time,mip_time=self.mip_time)
       solution = coarse_solver.mv(y)
       self.flux_moments += self.project_vector(solution)
     else :
@@ -139,7 +146,10 @@ class transport_solver(object) :
           self.flux_moments += delta
         elif self.param.preconditioner=='MIP' :
           precond = mip.mip(self.param,self.fe,self.tol/1e+2,self.output_file)
+          mip_start = time.time()
           delta = precond.solve(self.flux_moments)
+          mip_end = time.time()
+          self.mip_time.append(mip_end-mip_start)
           self.flux_moments += delta
       else :
         rhs = True
@@ -156,7 +166,10 @@ class transport_solver(object) :
 
           elif self.param.preconditioner=='MIP' :
             precond = mip.mip(self.param,self.fe,self.tol/1e+2,self.output_file)
+            mip_start = time.time()
             delta = precond.solve(self.flux_moments-flux_moments_old)
+            mip_end = time.time()
+            self.mip_time.append(mip_end-mip_start)
             self.flux_moments += delta
 
           conv = scipy.linalg.norm(self.flux_moments-flux_moments_old)/\
@@ -170,6 +183,16 @@ class transport_solver(object) :
           flux_moments_old = self.flux_moments.copy()
 
     end = time.time()
+
+    if self.param.verbose >= 1:
+      mv_time2 = [x for x in self.mv_time if x!=[]]
+      for i_m in xrange(0,len(mv_time2)) :
+        self.print_message('MV time : '+str(mv_time2[i_m]))
+        self.print_message('Sum mv time : '+str(sum(mv_time2[i_m])))
+      if self.param.preconditioner=='MIP' :
+        self.print_message('MIP time : '+str(self.mip_time))
+        self.print_message('Sum MIP time : '+str(sum(self.mip_time)))
+
     self.print_message('Elapsed time to solve the problem : %f'%(end-start))
 
 # Solve the P1SA equation
@@ -203,6 +226,8 @@ class transport_solver(object) :
 
   def mv(self,x) :
     """Perform the matrix-vector multiplication needed by GMRES."""
+
+    mv_start = time.time()
     y=x.copy()
     if self.param.multigrid==True :
       if self.param.level==0 :
@@ -211,7 +236,7 @@ class transport_solver(object) :
             self.param.preconditioner,self.param.multigrid,self.param.L_max/2,
             self.param.sn/2,level=1,max_level=self.param.max_level)
         coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter,
-            self.output_file)
+            self.output_file,mv_time=self.mv_time,mip_time=self.mip_time)
         solution = coarse_solver.mv(y)
         y += self.project_vector(solution)
 
@@ -225,7 +250,10 @@ class transport_solver(object) :
       elif self.param.level>self.param.max_level :
         if self.param.preconditioner=='MIP' :
           precond = mip.mip(self.param,self.fe,self.tol/1e+2,self.output_file)
+          mip_start = time.time()
           delta = precond.solve(y)
+          mip_end = time.time()
+          self.mip_time.append(mip_end-mip_start)
           sol = delta
         elif self.param.preconditioner=='P1SA' :
           precond = p1sa.p1sa(self.param,self.fe,self.tol/1e+2,
@@ -250,7 +278,7 @@ class transport_solver(object) :
             self.param.preconditioner,self.param.multigrid,new_L_max,
             new_sn,level=new_level,max_level=self.param.max_level)
         coarse_solver = transport_solver(coarse_param,self.tol,self.max_iter,
-            self.output_file)
+            self.output_file,mv_time=self.mv_time,mip_time=self.mip_time)
         solution = coarse_solver.mv(z)
         solution_proj = self.project_vector(solution)
         z += solution_proj
@@ -269,7 +297,10 @@ class transport_solver(object) :
         y += delta
       elif self.param.preconditioner=='MIP' :
         precond = mip.mip(self.param,self.fe,self.tol/1e+2,self.output_file)
+        mip_start = time.time()
         delta = precond.solve(x.copy())
+        mip_end = time.time()
+        self.mip_time.append(mip_end-mip_start)
         y += delta
 
 # Compute the scattering source
@@ -279,6 +310,9 @@ class transport_solver(object) :
 # that no BC are reflective)
       flxm = self.sweep(False)
       sol = y-flxm
+
+    mv_end = time.time()
+    self.mv_time[2**self.param.level].append(mv_end-mv_start)
 
     return sol
 

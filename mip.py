@@ -32,7 +32,7 @@ class mip(sa.synthetic_acceleration) :
 
     self.cg_iteration += 1
     res = scipy.linalg.norm(residual)
-    if self.param.verbose==2 :
+    if self.param.verbose>=2 :
       self.print_message(' L2-norm of the residual for iteration %i'\
           %self.cg_iteration + ' : %f'%scipy.linalg.norm(residual))
 
@@ -68,7 +68,7 @@ class mip(sa.synthetic_acceleration) :
           flux = np.zeros([self.size])
           iteration = np.array([0],dtype='int32')
           cg.pcg(values,rows,columns,self.mip_b,flux,self.tol,iteration)
-          if self.param.verbose==2 :
+          if self.param.verbose>=2 :
             self.print_message(' Converged after %i'%iteration+' iterations')
         else :
           P = self.compute_ssor(A)
@@ -82,14 +82,16 @@ class mip(sa.synthetic_acceleration) :
         B = np.ones([A.shape[0],1])
         ml = pyamg.smoothed_aggregation_solver(A,B,max_coarse=10)
         if self.param.accel==True :
-          flux = ml.solve(b=self.mip_b,tol=self.tol,accel='cg',residuals=resvec)
+          flux = ml.solve(b=self.mip_b,tol=self.tol,maxiter=self.param.v_cycle,\
+              accel='cg', residuals=resvec)
         else :
-          flux = ml.solve(b=self.mip_b,tol=self.tol,residuals=resvec)
-#        if self.param.verbose==2 :
+          flux = ml.solve(b=self.mip_b,tol=self.tol,maxiter=self.param.v_cycle,\
+              residuals=resvec)
+        if self.param.verbose>=3 :
 #          rho = pyamg.util.linalg.approximate_spectral_radius(A,symmetric=True)
 #          self.print_message( 'The approximate spectral radius is %f'%rho)
-#          self.print_message(ml)
-#          self.print_message(resvec)
+          self.print_message(str(ml))
+          self.print_message(str(resvec))
 
 # Project the MIP solution on the whole space
     krylov_space_size = x.shape[0]
