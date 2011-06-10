@@ -89,6 +89,8 @@ class parameters(object) :
 # Sn property
     self.multigrid = multigrid
     self.galerkin = galerkin
+# Solver properties
+    self.preconditioner = preconditioner
 # Projection on the scalar flux (scalar) or the scalar flux + current (current)
     self.projection = 'scalar'
     if self.galerkin == False :
@@ -99,8 +101,6 @@ class parameters(object) :
     self.optimal = optimal
     if TC == True :
         self.transport_correction()
-# Solver properties
-    self.preconditioner = preconditioner
 # If matrix_free is True, the preconditioner matrix is not build
     self.matrix_free = False
 # If the matrix is build and pyamg is True, the preconditioner is solve using
@@ -184,7 +184,7 @@ class parameters(object) :
     position={'1':0,'2':1,'4':6,'6':15,'8':15,'12':28,'16':45}
     for i_mat in xrange(0,self.alpha.shape[0]) :
       if self.optimal == True :
-        if self.multigrid=='False' :
+        if self.multigrid==False :
           if self.preconditioner=='P1SA' :
             if self.sig_s[:,i_mat].shape[0]>=4 :
               correction = (self.sig_s[3,i_mat]+self.sig_s[-1,i_mat])/2.
@@ -201,13 +201,13 @@ class parameters(object) :
           if self.sig_s[:,i_mat].shape[0]>=2 and self.projection=='scalar' :
             pos = position[str(self.sn)]
             if pos!=0 :
-              correction = (self.sig_s[pos]+self.sig_s[-1,i_mat])/2
+              correction = (self.sig_s[pos,i_mat]+self.sig_s[-1,i_mat])/2
             else :
               correction = 0.
           elif self.sig_s[:,i_mat].shape[0]>=4 and self.projection=='current' :
             pos = position[str(self.sn)]
             if pos!=0 :
-              correction = (self.sig_s[pos]+self.sig_s[-1,i_mat])/2
+              correction = (self.sig_s[pos,i_mat]+self.sig_s[-1,i_mat])/2
             else :
               correction = 0.
           else :
