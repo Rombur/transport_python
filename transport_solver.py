@@ -155,6 +155,7 @@ class transport_solver(object) :
         rhs = True
         self.flux_moments = np.zeros((4*self.param.n_cells*self.param.n_mom))
         flux_moments_old = np.zeros((4*self.param.n_cells*self.param.n_mom))
+#        flux_moments_old = self.initial_guess()
         for i in xrange(0,self.max_iter) :
           self.compute_scattering_source(flux_moments_old)
           self.flux_moments = self.sweep(rhs)
@@ -557,3 +558,24 @@ class transport_solver(object) :
     else :
       print a 
 
+#----------------------------------------------------------------------------#
+
+  def initial_guess(self) :
+    """Initial guess of the flux moment."""
+
+    flux = np.zeros(4*self.param.n_cells)
+    for cell in xrange(0,self.param.n_cells) :
+# Compute the row of the cell 
+      j = np.floor(cell/self.param.n_x)
+      if np.mod(j,2)==0 :
+        flux[4*cell] = 1.
+        flux[4*cell+2] = 1.
+        flux[4*cell+1] = -1.
+        flux[4*cell+3] = -1.
+      else :
+        flux[4*cell] = -1.
+        flux[4*cell+2] = -1.
+        flux[4*cell+1] = 1.
+        flux[4*cell+3] = 1.
+
+    return flux
