@@ -6,7 +6,8 @@
 ## Class transport_solver                                                   ##
 #----------------------------------------------------------------------------#
 
-"""Contain the solver of the transport equation"""
+"""Contain the solver of the transport equation. cell_mapping and mapping are
+not class method so they can be accessed easily from outside the class. """
 
 import numpy as np
 import scipy.linalg
@@ -17,6 +18,27 @@ import quadrature
 import finite_element
 import p1sa
 import mip
+import block_transport_solver
+
+def cell_mapping(cell,n_x) :
+  """Get the i,j pair of a cell given a cell."""
+
+  j = np.floor(cell/n_x)
+  i = cell - j*n_x
+
+  return i,j
+
+#----------------------------------------------------------------------------#
+
+def mapping(i,j,n_x) :
+  """Compute the index in the 'local' matrix."""
+
+  cell = int(i+j*n_x)
+  index = range(4*cell,4*(cell+1))
+
+  return index
+
+#----------------------------------------------------------------------------#
 
 class transport_solver(object) :
   """Solve the transport equation in 2D for cartesian geometry"""
@@ -38,6 +60,8 @@ class transport_solver(object) :
     self.fe = finite_element.finite_element(param)
     self.fe.build_2D_FE()
     self.fe.build_1D_FE()
+# Compute the upwind edge matrices
+    self.upwind_edge()
 # Compute the most normal direction
     if np.fmod(self.param.sn,2)==0 :
        self.most_normal()
@@ -159,6 +183,13 @@ class transport_solver(object) :
         for i in xrange(0,self.max_iter) :
           self.compute_scattering_source(flux_moments_old)
           self.flux_moments = self.sweep(rhs)
+
+          if self.param.block_solver==True :
+            block_solver = block_transport_solver.block_transport_solver(\
+                self.param,self.fe,self.quad,self.flux_moments,self.all_psi,\
+                self.x_down,self.x_up,self.y_down,self.y_up,self.most_n,\
+                self.tol,self.max_iter)
+            self.flux_moments = block_solver.solve()
 
           if self.param.preconditioner=='P1SA' :
             precond = p1sa.p1sa(self.param,self.fe,self.tol/1e+2,self.output_file)
@@ -325,11 +356,11 @@ class transport_solver(object) :
     self.scattering_src = np.zeros((4*self.param.n_mom*self.param.n_cells))
     for cell in xrange(0,int(self.param.n_cells)) :
 # Get i,j pair from a cell
-      [i,j] = self.cell_mapping(cell)
+      [i,j] = cell_mapping(cell,self.param.n_x)
       i_mat = self.param.mat_id[i,j]
       sca = self.param.sig_s[:,i_mat]
 # Get location in the matrix
-      ii = self.mapping(i,j)
+      ii = mapping(i,j,self.param.n_x)
 # Block diagonal term
       for k in xrange(0,self.param.n_mom) :
         kk = k*4*self.param.n_cells + ii
@@ -343,23 +374,13 @@ class transport_solver(object) :
 
 #----------------------------------------------------------------------------#
 
-  def cell_mapping(self,cell) :
-    """Get the i,j pair of a cell given a cell."""
-
-    j = np.floor(cell/self.param.n_x)
-    i = cell - j*self.param.n_x
-
-    return i,j
-
-#----------------------------------------------------------------------------#
-
   def upwind_edge(self) :
     """Compute the edge for the upwind."""
 
-    x_down= np.zeros((2,4,4))
-    x_up = np.zeros((2,4,4))
-    y_down = np.zeros((2,4,4))
-    y_up = np.zeros((2,4,4))
+    self.x_down= np.zeros((2,4,4))
+    self.x_up = np.zeros((2,4,4))
+    self.y_down = np.zeros((2,4,4))
+    self.y_up = np.zeros((2,4,4))
 
     x_down_i = np.array([[2,3],[0,1]])
     x_up_i = np.array([[0,1],[2,3]])
@@ -374,26 +395,14 @@ class transport_solver(object) :
     for k in xrange(0,2) :
       for i in xrange(0,2) :
         for j in xrange(0,2) :
-          x_down[k,x_down_i[k,i],x_down_j[k,j]] = (-1)**k *\
+          self.x_down[k,x_down_i[k,i],x_down_j[k,j]] = (-1)**k *\
               self.fe.vertical_edge_mass_matrix[i,j]
-          x_up[k,x_up_i[k,i],x_up_j[k,j]] = (-1)**(k+1) *\
+          self.x_up[k,x_up_i[k,i],x_up_j[k,j]] = (-1)**(k+1) *\
               self.fe.vertical_edge_mass_matrix[i,j]
-          y_down[k,y_down_i[k,i],y_down_j[k,j]] = (-1)**k *\
+          self.y_down[k,y_down_i[k,i],y_down_j[k,j]] = (-1)**k *\
               self.fe.horizontal_edge_mass_matrix[i,j]
-          y_up[k,y_up_i[k,i],y_up_j[k,j]] = (-1)**(k+1) *\
+          self.y_up[k,y_up_i[k,i],y_up_j[k,j]] = (-1)**(k+1) *\
               self.fe.horizontal_edge_mass_matrix[i,j]
-
-    return x_down,x_up,y_down,y_up
-
-#----------------------------------------------------------------------------#
-
-  def mapping(self,i,j) :
-    """Compute the index in the 'local' matrix."""
-
-    cell = int(i+j*self.param.n_x)
-    index = range(4*cell,4*(cell+1))
-
-    return index
 
 #----------------------------------------------------------------------------#
 
@@ -403,9 +412,9 @@ class transport_solver(object) :
     tmp = int(4*self.param.n_cells)
     self.scattering_src = self.scattering_src.reshape(self.param.n_mom,tmp)
 
-    [x_down,x_up,y_down,y_up] = self.upwind_edge()
-    
     flux_moments = np.zeros((4*self.param.n_mom*self.param.n_cells))
+    if self.param.block_solver==True :
+      self.all_psi = []
     for idir in xrange(0,self.quad.n_dir) :
       psi = np.zeros((4*self.param.n_cells))
 
@@ -436,8 +445,8 @@ class transport_solver(object) :
         y_incr = -1
 
 # Compute the gradient 
-      gradient = omega_x*(-self.fe.x_grad_matrix+x_down[sx,:,:])+omega_y*(
-          -self.fe.y_grad_matrix+y_down[sy,:,:])
+      gradient = omega_x*(-self.fe.x_grad_matrix+self.x_down[sx,:,:])+omega_y*(
+          -self.fe.y_grad_matrix+self.y_down[sy,:,:])
       
       for i in xrange(x_begin,x_end,x_incr) :
         for j in xrange(y_begin,y_end,y_incr) :
@@ -452,7 +461,7 @@ class transport_solver(object) :
                 self.fe.width_cell[1]*np.ones((4))/4.
 
 # Get location in the matrix
-          ii = self.mapping(i,j)
+          ii = mapping(i,j,self.param.n_x)
 
 # Add scattering source contribution
           scat_src = np.dot(self.quad.M[idir,:],self.scattering_src[:,ii])
@@ -463,35 +472,36 @@ class transport_solver(object) :
 
 # Upwind term in x
           if i>0 and sx==0 :
-            jj = self.mapping(i-1,j)
-            rhs -= omega_x*np.dot(x_up[sx,:,:],psi[jj])
+            jj = mapping(i-1,j,self.param.n_x)
+            rhs -= omega_x*np.dot(self.x_up[sx,:,:],psi[jj])
           else :
             if i==0 and idir in self.most_n['left'] and gmres_rhs==True :
-              rhs -= omega_x*np.dot(x_up[sx,:,:],self.param.inc_left[j]*\
+              rhs -= omega_x*np.dot(self.x_up[sx,:,:],self.param.inc_left[j]*\
                   np.ones((4)))
           if i<self.param.n_x-1 and sx==1 :
-            jj = self.mapping(i+1,j)
-            rhs -= omega_x*np.dot(x_up[sx,:,:],psi[jj])
+            jj = mapping(i+1,j,self.param.n_x)
+            rhs -= omega_x*np.dot(self.x_up[sx,:,:],psi[jj])
           else :
             if i==self.param.n_x-1 and idir in self.most_n['right'] and\
                 gmres_rhs==True :
-              rhs -= omega_x*np.dot(x_up[sx,:,:],self.param.inc_right[j]*\
+              rhs -= omega_x*np.dot(self.x_up[sx,:,:],self.param.inc_right[j]*\
                   np.ones((4)))
 
+# Upwind term in y
           if j>0 and sy==0 :
-            jj = self.mapping(i,j-1)
-            rhs -= omega_y*np.dot(y_up[sy,:,:],psi[jj])
+            jj = mapping(i,j-1,self.param.n_x)
+            rhs -= omega_y*np.dot(self.y_up[sy,:,:],psi[jj])
           else :
             if j==0 and idir in self.most_n['bottom'] and gmres_rhs==True :
-              rhs -= omega_y*np.dot(y_up[sy,:,:],self.param.inc_bottom[i]*\
+              rhs -= omega_y*np.dot(self.y_up[sy,:,:],self.param.inc_bottom[i]*\
                   np.ones((4)))
           if j<self.param.n_y-1 and sy==1 :
-            jj = self.mapping(i,j+1)
-            rhs -= omega_y*np.dot(y_up[sy,:,:],psi[jj])
+            jj = mapping(i,j+1,self.param.n_x)
+            rhs -= omega_y*np.dot(self.y_up[sy,:,:],psi[jj])
           else :
             if j==self.param.n_y-1 and idir in self.most_n['top'] and\
                 gmres_rhs==True :
-              rhs -= omega_y*np.dot(y_up[sy,:,:],self.param.inc_top[i]*\
+              rhs -= omega_y*np.dot(self.y_up[sy,:,:],self.param.inc_top[i]*\
                   np.ones((4)))
 
           psi[ii] = scipy.linalg.solve(L,rhs,sym_pos=False,lower=False,
@@ -503,6 +513,8 @@ class transport_solver(object) :
         i_end = (i+1)*4*self.param.n_cells
         flux_moments[i_begin:i_end] += self.quad.D[i,idir]*psi[:]
         
+      if self.param.block_solver==True :
+        self.all_psi.append(psi)
     
     return flux_moments
 

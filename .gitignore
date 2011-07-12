@@ -9,3 +9,4 @@ _*
 *.cxx
 cg.py
 *.gz
+*.un~

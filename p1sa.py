@@ -86,7 +86,10 @@ class p1sa(sa.synthetic_acceleration)  :
       ii,jj = self.cell_mapping(cell)
       i_mat = self.param.mat_id[ii,jj]
       sig_s0 = self.param.sig_s[0,i_mat]
-      sig_s1 = self.param.sig_s[1,i_mat]
+      if self.param.sig_s.shape[0]>1 :
+        sig_s1 = self.param.sig_s[1,i_mat]
+      else :
+        sig_s1 = 0
       for i in xrange(0,n_dofs) :
         pos_i = self.index(i,cell)
         for j in xrange(0,n_dofs) :

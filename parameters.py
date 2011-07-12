@@ -120,6 +120,8 @@ class parameters(object) :
     self.print_to_file = False
 # Toggle between SI and GMRES when multigrid is not use
     self.gmres = True
+# Bloc sweep works only when we do no use gmres
+    self.block_solver = False
 
 #----------------------------------------------------------------------------#
 
