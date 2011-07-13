@@ -179,17 +179,22 @@ class transport_solver(object) :
         rhs = True
         self.flux_moments = np.zeros((4*self.param.n_cells*self.param.n_mom))
         flux_moments_old = np.zeros((4*self.param.n_cells*self.param.n_mom))
-#        flux_moments_old = self.initial_guess()
+        flux_moments_old = self.initial_guess()
         for i in xrange(0,self.max_iter) :
-          self.compute_scattering_source(flux_moments_old)
-          self.flux_moments = self.sweep(rhs)
-
           if self.param.block_solver==True :
+            if i==0 :
+              self.all_psi = []
+              for idir in xrange(0,self.quad.n_dir) :
+                self.all_psi.append(np.zeros((4*self.param.n_cells)))
             block_solver = block_transport_solver.block_transport_solver(\
-                self.param,self.fe,self.quad,self.flux_moments,self.all_psi,\
+                self.param,self.fe,self.quad,flux_moments_old,self.all_psi,\
                 self.x_down,self.x_up,self.y_down,self.y_up,self.most_n,\
                 self.tol,self.max_iter)
             self.flux_moments = block_solver.solve()
+            flux_moments_old = self.flux_moments.copy()
+
+          self.compute_scattering_source(flux_moments_old)
+          self.flux_moments = self.sweep(rhs)
 
           if self.param.preconditioner=='P1SA' :
             precond = p1sa.p1sa(self.param,self.fe,self.tol/1e+2,self.output_file)
@@ -228,15 +233,17 @@ class transport_solver(object) :
     self.print_message('Elapsed time to solve the problem : %f'%(end-start))
 
 # Solve the P1SA equation
-    p1sa_src = self.compute_precond_src('P1SA')
-    p1sa_eq = p1sa.p1sa(self.param,self.fe,self.tol,self.output_file)
-    self.p1sa_flxm = p1sa_eq.solve(p1sa_src)
+#    p1sa_src = self.compute_precond_src('P1SA')
+#    p1sa_eq = p1sa.p1sa(self.param,self.fe,self.tol,self.output_file)
+#    self.p1sa_flxm = p1sa_eq.solve(p1sa_src)
+    self.p1sa_flxm = self.flux_moments.copy()
 
 # Solve the MIP equation
-    mip_src = self.compute_precond_src('MIP')
-    self.param.projection = 'scalar'
-    mip_eq = mip.mip(self.param,self.fe,self.tol,self.output_file)
-    self.mip_flxm = mip_eq.solve(mip_src)
+#    mip_src = self.compute_precond_src('MIP')
+#    self.param.projection = 'scalar'
+#    mip_eq = mip.mip(self.param,self.fe,self.tol,self.output_file)
+#    self.mip_flxm = mip_eq.solve(mip_src)
+    self.mip_flxm = self.flux_moments.copy()
     
 #----------------------------------------------------------------------------#
 

@@ -80,12 +80,12 @@ class block_transport_solver(object) :
     self.scattering_src = self.scattering_src.reshape(self.param.n_mom,tmp)
 
     flux_moments = np.zeros((4*self.param.n_mom*self.param.n_cells))
+    psi_ij = np.zeros((self.quad.n_dir,4*self.param.n_cells))
     for i in xrange(0,self.param.n_x) :
       for j in xrange(0,self.param.n_y) :
         if (np.mod(i+j,2)==0 and color=='red') or (np.mod(i+j,2)==1 and\
             color=='black') :
           for idir in xrange(0,self.quad.n_dir) :
-            psi_ij = np.zeros((4*self.param.n_cells))
             psi = np.zeros((4*self.param.n_cells))
 
             x_begin = []
@@ -207,7 +207,7 @@ class block_transport_solver(object) :
 # Block diagonal term     
                   L = gradient+sig_t*self.fe.mass_matrix
 
-# Upwinf term in x
+# Upwind term in x
                   if m>0 and sx==0 :
                     jj = t_s.mapping(m-1,n,self.param.n_x)
                     if m==x_begin[k] :
@@ -255,21 +255,35 @@ class block_transport_solver(object) :
                     overwrite_a=True,overwrite_b=True)
 
                   if m==i and n==j :
-                    psi_ij[ii] += psi[ii]/len(x_begin)
+                    psi_ij[idir][ii] += psi[ii]/len(x_begin)
 
 # Update the flux_moments
-            for k in xrange(0,self.param.n_mom) :
-              k_begin = k*4*self.param.n_cells
-              k_end = (k+1)*4*self.param.n_cells
-              flux_moments[k_begin:k_end] += self.quad.D[k,idir]*psi_ij[:]
+    for k in xrange(0,self.param.n_mom) :
+      k_begin = k*4*self.param.n_cells
+      k_end = (k+1)*4*self.param.n_cells
+      for idir in xrange(0,self.quad.n_dir) :
+        flux_moments[k_begin:k_end] += self.quad.D[k,idir]*psi_ij[idir,:]
+            
+# Update the angular flux
+    self.update_angular_flux(psi_ij)
 
     return flux_moments
 
 #----------------------------------------------------------------------------#
 
   def update_flux_moments(self,flux_moments) :
-    """Update the self.flux_moments after a bloc sweep."""
+    """Update self.flux_moments after a bloc sweep."""
 
     for i in xrange(0,self.flux_moments.shape[0]) :
       if flux_moments[i]!=0 :
         self.flux_moments[i] = flux_moments[i]
+
+#----------------------------------------------------------------------------#
+
+  def update_angular_flux(self,psi_ij) :
+    """Update self.all_psi after a bloc sweep."""
+
+    for idir in xrange(0,self.quad.n_dir) :
+      for i in xrange(0,4*self.param.n_cells) :
+        if psi_ij[idir,i]!=0 :
+          self.all_psi[idir][i] = psi_ij[idir,i]
