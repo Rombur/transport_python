@@ -116,7 +116,7 @@ class parameters(object) :
     self.accel = False
     self.verbose = 2
 # If print_to_file is True, the message are written on a file, otherwise they
-# are printed on the scree
+# are printed on the screen
     self.print_to_file = False
 # Toggle between SI and GMRES when multigrid is not use
     self.gmres = True

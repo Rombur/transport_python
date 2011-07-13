@@ -179,7 +179,7 @@ class transport_solver(object) :
         rhs = True
         self.flux_moments = np.zeros((4*self.param.n_cells*self.param.n_mom))
         flux_moments_old = np.zeros((4*self.param.n_cells*self.param.n_mom))
-        flux_moments_old = self.initial_guess()
+#        flux_moments_old = self.initial_guess()
         for i in xrange(0,self.max_iter) :
           if self.param.block_solver==True :
             if i==0 :
@@ -233,17 +233,15 @@ class transport_solver(object) :
     self.print_message('Elapsed time to solve the problem : %f'%(end-start))
 
 # Solve the P1SA equation
-#    p1sa_src = self.compute_precond_src('P1SA')
-#    p1sa_eq = p1sa.p1sa(self.param,self.fe,self.tol,self.output_file)
-#    self.p1sa_flxm = p1sa_eq.solve(p1sa_src)
-    self.p1sa_flxm = self.flux_moments.copy()
+    p1sa_src = self.compute_precond_src('P1SA')
+    p1sa_eq = p1sa.p1sa(self.param,self.fe,self.tol,self.output_file)
+    self.p1sa_flxm = p1sa_eq.solve(p1sa_src)
 
 # Solve the MIP equation
-#    mip_src = self.compute_precond_src('MIP')
-#    self.param.projection = 'scalar'
-#    mip_eq = mip.mip(self.param,self.fe,self.tol,self.output_file)
-#    self.mip_flxm = mip_eq.solve(mip_src)
-    self.mip_flxm = self.flux_moments.copy()
+    mip_src = self.compute_precond_src('MIP')
+    self.param.projection = 'scalar'
+    mip_eq = mip.mip(self.param,self.fe,self.tol,self.output_file)
+    self.mip_flxm = mip_eq.solve(mip_src)
     
 #----------------------------------------------------------------------------#
 
