@@ -33,7 +33,7 @@ class spectral_volume(object)  :
     den_3 = den 
 
     array_0 = np.array([1./den_0,1./den_1,1./den_2,1./den_3])
-    array_1 = self.delta[1]*np.array([1.5/den_0,0.5/den_1,1.5/den_2,0.5_den_3])
+    array_1 = self.delta[1]*np.array([1.5/den_0,0.5/den_1,1.5/den_2,0.5/den_3])
     array_2 = self.delta[0]*np.array([1.5/den_0,1.5/den_1,0.5/den_1,0.5/den_3])
     array_3 = np.array([2.25,-0.75,-0.75,0.25])
     
@@ -43,7 +43,7 @@ class spectral_volume(object)  :
     self.right_edge_cv_0 = self.delta[0]*self.delta[1]**2/2.*array_0-\
         self.delta[0]*array_1-self.delta[1]**2/2.*array_2-self.delta[1]*array_3
 
-    self.top_edge_cv_0 = -self.delta[0]**2/2.self.delta[0]*array_0+\
+    self.top_edge_cv_0 = -self.delta[0]**2/2.*self.delta[0]*array_0+\
         self.delta[0]**2/2.*array_1-self.delta[1]*array_2-self.delta[0]*array_3
 
     self.left_edge_cv_0 = self.delta[1]**2/2.*self.delta[0]*array_2-\
@@ -52,14 +52,14 @@ class spectral_volume(object)  :
 # Second CV, bottom right
     self.bottom_edge_cv_1 = -self.delta[0]**2/2.*array_1+self.delta[0]*array_3
     
-    self.right_edge_cv_1 = 2.*self.delta_x[0]*self.delta[1]**2*array_0-\
+    self.right_edge_cv_1 = 2.*self.delta[0]*self.delta[1]**2*array_0-\
         2.*self.delta[0]*array_1-self.delta[1]**2/2.*array_3+self.delta[1]*array_3
 
     self.top_edge_cv_1 = -self.delta[0]**2/2*self.delta[1]*array_0+\
         self.delta[0]**2*array_1-self.delta[1]*array_2-self.delta[0]*array_3
 
     self.left_edge_cv_1 = -self.delta[0]*self.delta[1]**2/2.*array_0-\
-        self.delta[0]*array_1+self.delta[1]**2/2.*array_2-self.delta[1]array_3
+        self.delta[0]*array_1+self.delta[1]**2/2.*array_2-self.delta[1]*array_3
 
 # Third CV, top right        
     self.bottom_edge_cv_2= self.delta[0]**2/2.*self.delta[1]*array_0-\
@@ -83,7 +83,7 @@ class spectral_volume(object)  :
         self.delta[0]*array_1-self.delta[0]**2/2.*array_2+self.delta[1]*array_3
 
     self.top_edge_cv_3 = -self.delta[0]**2/2.*2.*self.delta[1]*array_0+\
-        self.delta[0]**2/2.*array_1-2.*self.delta[1]*array_2-self.data[0]*array_3
+        self.delta[0]**2/2.*array_1-2.*self.delta[1]*array_2-self.delta[0]*array_3
 
     self.left_edge_cv_3 = self.delta[1]**2/2.*array_2-self.delta[1]*array_3    
 
@@ -106,7 +106,7 @@ class spectral_volume(object)  :
       den_3 = den 
 
       array_0 = np.array([1./den_0,1./den_1,1./den_2,1./den_3])
-      array_1 = self.delta[1]*np.array([1.5/den_0,0.5/den_1,1.5/den_2,0.5_den_3])
+      array_1 = self.delta[1]*np.array([1.5/den_0,0.5/den_1,1.5/den_2,0.5/den_3])
       array_2 = self.delta[0]*np.array([1.5/den_0,1.5/den_1,0.5/den_1,0.5/den_3])
       array_3 = np.array([2.25,-0.75,-0.75,0.25])
 
@@ -121,7 +121,7 @@ class spectral_volume(object)  :
           self.delta[1]**2/2.*array_2+self.delta[0]*self.delta[1]*array_3
       self.surface_cv_3 = (self.delta[0]*self.delta[1])**2/4.*array_0-\
           self.delta[0]**2/2.*self.delta[1]*array_1-self.delta[0]*\
-          self.delta[1]**2/2.array_3+self.delta[0]*self.delta[1]*array_3
+          self.delta[1]**2/2.*array_3+self.delta[0]*self.delta[1]*array_3
     
     self.surface_sv = np.array([self.surface_cv_0,self.surface_cv_1,\
         self.surface_cv_2,self.surface_cv_3])

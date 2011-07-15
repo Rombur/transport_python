@@ -120,6 +120,9 @@ class parameters(object) :
     self.print_to_file = False
 # Toggle between SI and GMRES when multigrid is not use
     self.gmres = True
+# Compute the solution of the P1SA and MiP problems after solving the
+# transport problem.
+    self.full_output = False
 
 #----------------------------------------------------------------------------#
 

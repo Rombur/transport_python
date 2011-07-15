@@ -98,117 +98,6 @@ class transport_solver(object) :
 
 #----------------------------------------------------------------------------#
 
-  def sweep(self,gmres_rhs) :
-    """Do the transport sweep on all the directions."""
-                                                    
-    tmp = int(4*self.param.n_cells)
-    self.scattering_src = self.scattering_src.reshape(self.param.n_mom,tmp)
-
-    [x_down,x_up,y_down,y_up] = self.upwind_edge()
-    
-    flux_moments = np.zeros((4*self.param.n_mom*self.param.n_cells))
-    for idir in xrange(0,self.quad.n_dir) :
-      psi = np.zeros((4*self.param.n_cells))
-
-# Direction alias
-      omega_x = self.quad.omega[idir,0]
-      omega_y = self.quad.omega[idir,1]
-
-# Upwind/downwind indices
-      if omega_x > 0.0 :
-        sx = 0
-        x_begin = 0
-        x_end = int(self.param.n_x)
-        x_incr = 1
-      else :
-        sx = 1
-        x_begin = int(self.param.n_x-1)
-        x_end = -1
-        x_incr = -1
-      if omega_y > 0.0 :
-        sy = 0
-        y_begin = 0
-        y_end = int(self.param.n_y)
-        y_incr = 1
-      else :
-        sy = 1
-        y_begin = int(self.param.n_y-1)
-        y_end = -1
-        y_incr = -1
-
-# Compute the gradient 
-      gradient = omega_x*(-self.fe.x_grad_matrix+x_down[sx,:,:])+omega_y*(
-          -self.fe.y_grad_matrix+y_down[sy,:,:])
-      
-      for i in xrange(x_begin,x_end,x_incr) :
-        for j in xrange(y_begin,y_end,y_incr) :
-          i_mat = self.param.mat_id[i,j]
-          sig_t = self.param.sig_t[i_mat]
-
-# Volumetric term of the rhs
-          i_src = self.param.src_id[i,j]
-          rhs = np.zeros((4))
-          if gmres_rhs == True :
-            rhs = self.param.src[i_src]*self.fe.width_cell[0]*\
-                self.fe.width_cell[1]*np.ones((4))/4.
-
-# Get location in the matrix
-          ii = self.mapping(i,j)
-
-# Add scattering source contribution
-          scat_src = np.dot(self.quad.M[idir,:],self.scattering_src[:,ii])
-          rhs += scat_src
-
-# Block diagonal term
-          L = gradient+sig_t*self.fe.mass_matrix
-
-# Upwind term in x
-          if i>0 and sx==0 :
-            jj = self.mapping(i-1,j)
-            rhs -= omega_x*np.dot(x_up[sx,:,:],psi[jj])
-          else :
-            if i==0 and idir in self.most_n['left'] and gmres_rhs==True :
-              rhs -= omega_x*np.dot(x_up[sx,:,:],self.param.inc_left[j]*\
-                  np.ones((4)))
-          if i<self.param.n_x-1 and sx==1 :
-            jj = self.mapping(i+1,j)
-            rhs -= omega_x*np.dot(x_up[sx,:,:],psi[jj])
-          else :
-            if i==self.param.n_x-1 and idir in self.most_n['right'] and\
-                gmres_rhs==True :
-              rhs -= omega_x*np.dot(x_up[sx,:,:],self.param.inc_right[j]*\
-                  np.ones((4)))
-
-          if j>0 and sy==0 :
-            jj = self.mapping(i,j-1)
-            rhs -= omega_y*np.dot(y_up[sy,:,:],psi[jj])
-          else :
-            if j==0 and idir in self.most_n['bottom'] and gmres_rhs==True :
-              rhs -= omega_y*np.dot(y_up[sy,:,:],self.param.inc_bottom[i]*\
-                  np.ones((4)))
-          if j<self.param.n_y-1 and sy==1 :
-            jj = self.mapping(i,j+1)
-            rhs -= omega_y*np.dot(y_up[sy,:,:],psi[jj])
-          else :
-            if j==self.param.n_y-1 and idir in self.most_n['top'] and\
-                gmres_rhs==True :
-              rhs -= omega_y*np.dot(y_up[sy,:,:],self.param.inc_top[i]*\
-                  np.ones((4)))
-
-          psi[ii] = scipy.linalg.solve(L,rhs,sym_pos=False,lower=False,
-            overwrite_a=True,overwrite_b=True)
-
-# update scalar flux
-      for i in xrange(0,self.param.n_mom) :
-        i_begin = i*4*self.param.n_cells
-        i_end = (i+1)*4*self.param.n_cells
-        flux_moments[i_begin:i_end] += self.quad.D[i,idir]*psi[:]
-        
-    
-    return flux_moments
-
-#----------------------------------------------------------------------------#
-
   def project_vector(self,x) :
     """Project a vector from coarse_n_mom to self.n_mom."""
 
@@ -285,8 +174,8 @@ class transport_solver(object) :
 
 #----------------------------------------------------------------------------#
 
-  def upwind_edge(self) :
-    """Compute the edge for the upwind. The function is purely virtual."""
+  def sweep(self) :
+    """Do the transport sweep on all the directions."""
 
-    raise NotImplementedError("upwind_edge is purely virtual and must be\
+    raise NotImplementedError("sweep is purely virtual and must be\
         overriden.")

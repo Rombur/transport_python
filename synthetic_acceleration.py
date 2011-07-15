@@ -15,6 +15,8 @@ class synthetic_acceleration(object) :
   P1SA."""
 
   def __init__(self,parameters,fe,tol,output_file) :
+
+    super(synthetic_acceleration,self).__init__()
     self.param = parameters
     self.fe = fe
     self.tol = tol
