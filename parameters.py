@@ -122,6 +122,8 @@ class parameters(object) :
     self.gmres = True
 # Bloc sweep works only when we do no use gmres
     self.block_solver = False
+# Kind of block used : 'red-black' or 'red-black-orange-white'
+    self.block_type = 'red-black-orange-white'
 
 #----------------------------------------------------------------------------#
 

@@ -186,10 +186,14 @@ class transport_solver(object) :
               self.all_psi = []
               for idir in xrange(0,self.quad.n_dir) :
                 self.all_psi.append(np.zeros((4*self.param.n_cells)))
-            block_solver = block_transport_solver.block_transport_solver(\
-                self.param,self.fe,self.quad,flux_moments_old,self.all_psi,\
-                self.x_down,self.x_up,self.y_down,self.y_up,self.most_n,\
-                self.tol,self.max_iter)
+            if self.param.block_type=='red-black' :
+              block_solver = rb_block_transport_solver.rb_block_transport_solver(\
+                  self.param,self.fe,self.quad,flux_moments_old,self.all_psi,\
+                  self.x_down,self.x_up,self.y_down,self.y_up,self.most_n)
+            else :
+              block_solver = rbow_block_transport_solver.rb_block_transport_solver(\
+                  self.param,self.fe,self.quad,flux_moments_old,self.all_psi,\
+                  self.x_down,self.x_up,self.y_down,self.y_up,self.most_n)
             self.flux_moments = block_solver.solve()
             flux_moments_old = self.flux_moments.copy()
 
@@ -412,7 +416,7 @@ class transport_solver(object) :
 #----------------------------------------------------------------------------#
 
   def sweep(self,gmres_rhs) :
-    """Do the transport sweep on all the directions."""
+    """Perform the transport sweep on all the directions."""
                                                     
     tmp = int(4*self.param.n_cells)
     self.scattering_src = self.scattering_src.reshape(self.param.n_mom,tmp)
