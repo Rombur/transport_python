@@ -18,7 +18,8 @@ import quadrature
 import finite_element
 import p1sa
 import mip
-import block_transport_solver
+import rb_block_transport_solver
+import rbow_block_transport_solver
 
 def cell_mapping(cell,n_x) :
   """Get the i,j pair of a cell given a cell."""
@@ -191,7 +192,8 @@ class transport_solver(object) :
                   self.param,self.fe,self.quad,flux_moments_old,self.all_psi,\
                   self.x_down,self.x_up,self.y_down,self.y_up,self.most_n)
             else :
-              block_solver = rbow_block_transport_solver.rb_block_transport_solver(\
+              block_solver =\
+                  rbow_block_transport_solver.rbow_block_transport_solver(\
                   self.param,self.fe,self.quad,flux_moments_old,self.all_psi,\
                   self.x_down,self.x_up,self.y_down,self.y_up,self.most_n)
             self.flux_moments = block_solver.solve()

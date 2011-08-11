@@ -7,8 +7,12 @@
 #----------------------------------------------------------------------------#
 
 """Contain the red-black-orange-white block solver of the transport equation."""
+import numpy as np
+import scipy.linalg
+import transport_solver as t_s
+import block_transport_solver as b_t_s
 
-class rbow_block_transport_solver(object) :
+class rbow_block_transport_solver(b_t_s.block_transport_solver) :
   """Solve the transport equation in 2D for cartesian geometry using a
   red-black-orange-white block algorithm. Works only with SI and if n_x and
   n_y are even. Derived from block_transport_solver."""
@@ -29,13 +33,15 @@ class rbow_block_transport_solver(object) :
     self.update_flux_moments(flux_moments)
     self.compute_scattering_source(self.flux_moments)
     flux_moments = self.sweep('black')
-    self.update_flux_mometns(flux_moments)
+    self.update_flux_moments(flux_moments)
     self.compute_scattering_source(self.flux_moments)
     flux_moments = self.sweep('orange')
-    self.update_flux_mometns(flux_moments)
+    self.update_flux_moments(flux_moments)
     self.compute_scattering_source(self.flux_moments)
     flux_moments = self.sweep('white')
-    self.update_flux_mometns(flux_moments)
+    self.update_flux_moments(flux_moments)
+
+    return self.flux_moments
 
 #----------------------------------------------------------------------------#
 
@@ -50,24 +56,24 @@ class rbow_block_transport_solver(object) :
     
     if color=='red' :
       i_begin = 0
-      i_end = self.param.n_x-2
+      i_end = self.param.n_x-1
       j_begin = 0
-      j_end = self.param.n_y-2
+      j_end = self.param.n_y-1
     elif color=='black' :
       i_begin = 1
-      i_end = self.param.n_x-3
+      i_end = self.param.n_x-2
       j_begin = 0
-      j_end = self.param.n_y-2
+      j_end = self.param.n_y-1
     elif color=='orange' :
       i_begin = 0
-      i_end = self.param.n_x-2
+      i_end = self.param.n_x-1
       j_begin = 1
-      j_end = self.param.n_y-3
+      j_end = self.param.n_y-2
     else :
       i_begin = 1
-      i_end = self.param.n_x-3
+      i_end = self.param.n_x-2
       j_begin = 1
-      j_end = self.param.n_y-3
+      j_end = self.param.n_y-2
     
     for i in xrange(i_begin,i_end,2) :
       for j in xrange(j_begin,j_end,2) :
@@ -112,7 +118,7 @@ class rbow_block_transport_solver(object) :
 # Volumetric term of the rhs
               i_src = self.param.src_id[m,n]
               rhs = self.param.src[i_src]*self.fe.width_cell[0]*\
-                  self.fe.width_cell[1]*np.ones((4)))/4.
+                  self.fe.width_cell[1]*np.ones((4))/4.
 
 # Get location in the matrix
               ii = t_s.mapping(m,n,self.param.n_x)
@@ -162,7 +168,7 @@ class rbow_block_transport_solver(object) :
                 if n==y_begin :
                   rhs -= omega_y*np.dot(self.y_up[sy,:,:],psi[jj])
                 else :
-                  rhs -= omega_y*np.dot(self.y_ip[sy,:,:],psi[jj])
+                  rhs -= omega_y*np.dot(self.y_up[sy,:,:],psi[jj])
               elif n==self.param.n_y-1 and idir in self.most_n['top'] :
                 rhs -= omega_y*np.dot(self.y_up[sy,:,:],\
                     self.param.inc_top[i]*np.ones((4)))
