@@ -189,7 +189,7 @@ d_vector forward_substitution(d_vector const &lower_values, ui_vector const
 {
   /**
    * Multiply the inverse of a lower triangular by a vector. It is the same
-   * to solve the system Lx=b than to multipy inv(L) by b.
+   * to solve the system Lx=b than to multiply inv(L) by b.
    */
 
   const unsigned int size(b.size());

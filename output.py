@@ -9,7 +9,7 @@
 """Create the output file"""
 
 import numpy as np
-import enthought.mayavi as mayavi
+import mayavi 
 import parameters
 
 class output(object) :

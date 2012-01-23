@@ -149,7 +149,7 @@ class parameters(object) :
         mat_id_tmp[i,j] = self.mat_id[old_i,old_j]
         src_id_tmp[i,j] = self.src_id[old_i,old_j]
     for j in xrange(0,new_j_size) :
-      old_j = int(j)/int(new_j_size)
+      old_j = int(j)/int(self.n_div[1])
       inc_left_tmp[j] = self.inc_left[old_j]
       inc_right_tmp[j] = self.inc_right[old_j]
 

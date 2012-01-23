@@ -11,7 +11,10 @@
 import numpy as np
 
 class finite_element(object) :
-  """Contain the mass and gradient matrices in 1D and 2D"""
+  """Contain the mass and gradient matrices in 1D and 2D : 
+    1--3
+    |  |
+    0--2"""
 
   def __init__(self,param) :
 
