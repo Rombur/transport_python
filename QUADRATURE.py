@@ -3,7 +3,7 @@
 # Date: 2011-03-31 14:02:08.144998
 
 #----------------------------------------------------------------------------#
-## Class quadrature                                                         ##
+## Class QUADRATURE                                                         ##
 #----------------------------------------------------------------------------#
 
 """Contain the quadrature"""
@@ -13,29 +13,30 @@ import scipy.special.orthogonal
 import scipy.linalg
 import scipy.misc.common as sci
 
-class quadrature(object)  :
+class QUADRATURE(object)  :
   """Build the quadrature (Gauss-Legendre-Chebyshev) and the Galerkin
   version of the quadrature. Create the M and D matrices."""
 
   def __init__(self,param) :
 
-    super(quadrature,self).__init__()
+    super(QUADRATURE,self).__init__()
     self.sn = param.sn
     self.n_dir = self.sn*(self.sn+2)/2
     self.galerkin = param.galerkin
     self.L_max = param.L_max
     self.n_mom = param.n_mom
+    self.total_weight = param.weight
 
 #----------------------------------------------------------------------------#
 
-  def build_quadrature(self) :
+  def Build_quadrature(self) :
     """Build the quadrature, i.e. M, D and omega (direction vector)."""
 
 # Compute the Gauss-Legendre quadrature
     [self.polar_nodes,self.polar_weight] = scipy.special.orthogonal.p_roots(self.sn) 
 
 # Compute the Chebyshev quadrature
-    [self.azith_nodes,self.azith_weight] = self.chebyshev()
+    [self.azith_nodes,self.azith_weight] = self.Chebyshev()
 
     self.cos_theta = np.zeros((self.sn/2,1))
     for i in xrange(0,self.sn/2) :
@@ -43,23 +44,23 @@ class quadrature(object)  :
     self.sin_theta = np.sqrt(1-self.cos_theta**2)
 
 # Compute omega on one octant
-    self.build_octant()
+    self.Build_octant()
 
 # Compute omega by deploying the octant 
-    self.deploy_octant()
+    self.Deploy_octant()
 
 # Compute the spherical harmonics
-    self.compute_harmonics()
+    self.Compute_harmonics()
 
 # Compute D
     if self.galerkin == True :
       self.D = scipy.linalg.inv(self.M)
     else :
-      self.D = np.dot(self.M.transpose(),np.diag(self.weight))
+      self.D = np.dot(self.M.transpose(),np.diag(self.total_weight*self.weight))
 
 #----------------------------------------------------------------------------#
 
-  def chebyshev(self) :
+  def Chebyshev(self) :
     """Build the Chebyshev quadrature in a quadrant."""
 
     size = 0
@@ -79,7 +80,7 @@ class quadrature(object)  :
 
 #----------------------------------------------------------------------------#
 
-  def build_octant(self) :
+  def Build_octant(self) :
     """Build omega and weight for one octant."""
     
     self.omega = np.zeros((self.n_dir,3))
@@ -99,7 +100,7 @@ class quadrature(object)  :
 
 #----------------------------------------------------------------------------#
 
-  def deploy_octant(self) :
+  def Deploy_octant(self) :
     """Compute omega and the weights by deploing the octants."""
 
     n_dir_oct = self.n_dir/4
@@ -129,7 +130,7 @@ class quadrature(object)  :
 
 #----------------------------------------------------------------------------#
 
-  def compute_harmonics(self) :
+  def Compute_harmonics(self) :
     """Compute the spherical harmonics and build the matrix M."""
 
     Ye = np.zeros((self.L_max+1,self.L_max+1,self.n_dir))
@@ -149,11 +150,11 @@ class quadrature(object)  :
           norm_P = P_ml
         else :
           norm_P = (-1.0)**m*np.sqrt(2*sci.factorial(l-m)/sci.factorial(l+m))\
-              *P_ml
+              *np.sqrt(2l+1)*P_ml
         size = norm_P.shape
         for i in xrange(0,size[0]) :
-          Ye[l,m,i] = norm_P[i]*np.cos(m*phi[i])
-          Yo[l,m,i] = norm_P[i]*np.sin(m*phi[i])
+          Ye[l,m,i] = norm_P[i]*np.cos(m*phi[i])/np.sqrt(self.total_weight)
+          Yo[l,m,i] = norm_P[i]*np.sin(m*phi[i])/np.sqrt(self.total_weight)
 
 # Build the matrix M 
     self.sphr = np.zeros((self.n_dir,self.n_mom))
@@ -162,33 +163,27 @@ class quadrature(object)  :
       for i in xrange(0,self.n_dir) :
         pos = 0
         for l in xrange(0,self.L_max+1) :
-          fact = 2*l+1
           for m in xrange(l,-1,-1) :
 # do not use the EVEN when m+l is odd for L<sn of L=sn and m=0
             if l<self.sn and np.fmod(m+l,2)==0 :
-              self.sphr[i,pos] = Ye[l,m,i]
-              self.M[i,pos] = fact*self.sphr[i,pos]
+              self.M[i,pos] = self.sphr[i,pos]
               pos += 1
           for m in xrange(1,l+1) :
 # do not ise the ODD when m+l is odd for l<=sn
             if l<=self.sn and  np.fmod(m+l,2)==0 :
-              self.sphr[i,pos] = Yo[l,m,i]
-              self.M[i,pos] = fact*self.sphr[i,pos]
+              self.M[i,pos] = self.sphr[i,pos]
               pos += 1
     else :
       for i in xrange(0,self.n_dir) :
         pos = 0
         for l in xrange(0,self.L_max+1) :
-          fact = 2*l+1
           for m in xrange(l,-1,-1) :
 # do not use the EVEN when m+l is odd 
             if np.fmod(m+l,2)==0 :
-              self.sphr[i,pos] = Ye[l,m,i]
-              self.M[i,pos] = fact*self.sphr[i,pos]
+              self.M[i,pos] = self.sphr[i,pos]
               pos += 1
           for m in xrange(1,l+1) :
 # do not ise the ODD when m+l is odd 
             if np.fmod(m+l,2)==0 :
-              self.sphr[i,pos] = Yo[l,m,i]
-              self.M[i,pos] = fact*self.sphr[i,pos]
+              self.M[i,pos] = self.sphr[i,pos]
               pos += 1

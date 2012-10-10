@@ -10,10 +10,10 @@
 objects."""
 
 import numpy as np
-import enthought.mayavi.tools.pipeline as mayavi_pipeline
-import enthought.mayavi.mlab as mayavi_mlab
+import mayavi.tools.pipeline as mayavi_pipeline
+import mayavi.mlab as mayavi_mlab
 
-def create_mayavi(filename) :
+def Create_mayavi(filename) :
   """Open mayavi."""
 
 # Load mesh and solution
@@ -24,27 +24,17 @@ def create_mayavi(filename) :
   y_size = y.shape[0]
 # Load flux moments
   flux_moments = data['flux_moments']
-  p1sa_flxm = data['p1sa_flxm']
-  mip_flxm = data['mip_flxm']
-
   scalar_flux = flux_moments[0:4*x_size*y_size]
+  
   new_scalar_flux = change_shape(x_size,y_size,scalar_flux)
-  p1sa_scalar_flux = p1sa_flxm[0:4*x_size*y_size]
-  new_p1sa_scalar_flux = change_shape(x_size,y_size,p1sa_scalar_flux)
-  new_mip_scalar_flux = change_shape(x_size,y_size,mip_flxm)
-
   new_x,new_y = expand(x,y,x_size,y_size)
   
   mayavi_mlab.mesh(new_x,new_y,new_scalar_flux,name='transport : scalar flux')
-  mayavi_mlab.mesh(new_x,new_y,new_p1sa_scalar_flux,name='p1sa : scalar flux')
-  mayavi_mlab.mesh(new_x,new_y,new_mip_scalar_flux,name='mip : scalar flux')
   mayavi_mlab.show()
-#  mayavi_pipeline.array2d_source(x,y,new_scalar_flux,name='2D')
-#  mayavi_mlab.surf(x,y,new_scalar_flux,name='3D')
 
 #----------------------------------------------------------------------------#
 
-def expand(x,y,x_size,y_size) :
+def Expand(x,y,x_size,y_size) :
   """Create 2D array of x and y."""
 
   new_x = np.zeros([x_size,y_size])
@@ -62,7 +52,7 @@ def expand(x,y,x_size,y_size) :
 
 #----------------------------------------------------------------------------#
 
-def change_shape(x_size,y_size,flux) :
+def Change_shape(x_size,y_size,flux) :
   """Change the size of the flux."""
 
   new_flux = np.zeros([x_size,y_size])
@@ -75,7 +65,7 @@ def change_shape(x_size,y_size,flux) :
 
 #----------------------------------------------------------------------------#
 
-def  mapping(i,j,x_size) :
+def  Mapping(i,j,x_size) :
   """Compute the position in the flux_moments vector."""
 
   return int(2*i+np.fmod(j,2)+np.floor(j/2)*2*x_size)

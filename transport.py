@@ -4,31 +4,21 @@
 #----------------------------------------------------------------------------#
 
 # Driver for the transport code.
-import parameters
-import FE_transport_solver
-import SV_transport_solver
-import output
+
+import numpy as np
+import PARAMETERS
+import FE_TRANSPORT_SOLVER
+import SV_TRANSPORT_SOLVER
+import OUTPUT
 
 # Tolerance for GMRES
 tol = 1e-4
 # Maximum number of iterations fo GMRES
 max_it = 10000
 # If galerkin is True, sn = L_max -> the value of sn is not read
-galerkin = True
-# If True uses Fokker-Planck cross-section
-fokker_planck = True
-# If True uses transport correction
-TC = True
-# If True and TC is True, uses the optimal transport correction. If TC is
-# False, optimal is not read
-optimal = True
-# Preconditioner used : 'None', 'P1SA' or 'MIP'
-preconditioner = 'MIP'
-# When multigrid is used, a preconditioner has to be applied (P1SA is chosen by
-# default). 
-multigrid = True
+galerkin = False
 # L_max
-L_max = 8
+L_max = 0
 # Order of the Sn method
 sn = 8
 # Name of the output file
@@ -37,17 +27,40 @@ filename = 'transport'
 discretization = 'SV'
 # If SV is used, there are two different_discretization possible
 point_value = False
+# If print_to_file is True, the message are written on a file, otherwise they
+# are printed on the scree
+print_to_file = False
+# Toggle between SI and GMRES when multigrid is not use
+gmres = True
+
+x_width = np.array([1.,1.])
+y_width = np.array([1.,1.])
+n_x_div = np.array([2,4])
+n_y_div = np.array([4,2])
+inc_bottom = np.array([0.,0.])
+inc_right = np.array([0.,0.])
+inc_top = np.array([0.,0.])
+inc_left = np.array([0.,0.])
+mat_id = np.array([[0,1],[0,1]])
+src_id = np.array([[0,0],[1,1]])
+src = np.array([10.,0.])
+sig_t = np.array([2.,1.])
+sig_s = np.zeros((2,1))
+sig_s[0,0] = 1.
+sig_s[1,0] = 0.
+weight = 2.*np.pi
+verbose = 1
 
 # Driver of the program
 output_file = open(filename+'.txt','w')
-param = parameters.parameters(galerkin,fokker_planck,TC,optimal,preconditioner,
-    multigrid,L_max,sn)
+param = PARAMETERS.PARAMETERS(galerkin,L_max,sn,print_to_file,gmres,x_width,y_width,
+    n_x_div,n_y_div,inc_bottom,inc_right,inc_top,inc_left,mat_id,src_id,src,
+    sig_t,sig_s,weight,verbose,discretization)
 if discretization=='FE' :
-  solver = FE_transport_solver.FE_transport_solver(param,tol,max_it,output_file)
+  solver = FE_TRANSPORT_SOLVER.FE_TRANSPORT_SOLVER(param,tol,max_it,output_file)
 else :
-  solver = SV_transport_solver.SV_transport_solver(param,tol,max_it,
+  solver = SV_TRANSPORT_SOLVER.SV_TRANSPORT_SOLVER(param,tol,max_it,
       output_file,point_value)
-solver.solve()
-out = output.output(filename,solver.flux_moments,solver.p1sa_flxm,
-    solver.mip_flxm,param)
-out.write_in_file()
+solver.Solve()
+out = OUTPUT.OUTPUT(filename,solver.flux_moments,param,solver.dof_handler.n_dof)
+out.Write_in_file()

@@ -3,7 +3,7 @@
 # Date: 2011-07-04 15:32:11.045280
 
 #----------------------------------------------------------------------------#
-## Class SV_transport_solver                                                ##
+## Class SV_TRANSPORT_SOLVER                                                ##
 #----------------------------------------------------------------------------#
 
 """Contain the spectral volumes solver of the transport equation"""
@@ -12,119 +12,48 @@ import numpy as np
 import scipy.linalg
 import scipy.sparse.linalg
 import time 
-import transport_solver as solver
-import spectral_volume
+import TRANSPORT_SOLVER as SOLVER
+import SPECTRAL_VOLUME
 
-class SV_transport_solver(solver.transport_solver) :
+class SV_TRANSPORT_SOLVER(SOLVER.TRANSPORT_SOLVER) :
   """Solve the transport equation discretized with spectral volumes."""
 
   def __init__(self,param,tol,max_it,output_file,point_value) :
 
-    super(SV_transport_solver,self).__init__(param,tol,max_it,output_file)
+    super(SV_TRANSPORT_SOLVER,self).__init__(param,tol,max_it,output_file)
 
 # Create and build the spectral volume object 
-    self.sv = spectral_volume.spectral_volume(param)
-    self.sv.build_edge_integral()
-    self.sv.build_cell_integral(point_value)
+    self.sv = SPECTRAL_VOLUME.SPECTRAL_VOLUME(param)
+    self.sv.Build_edge_integral()
+    self.sv.Build_cell_integral(point_value)
 
 #----------------------------------------------------------------------------#
 
-  def solve(self) :
-    """Solve the transport equation."""
-
-    start = time.time()
-    if self.param.gmres==True :
-# Compute the uncollided flux moment (D*inv(L)*q) = rhs of gmres
-      gmres_rhs = True
-      self.scattering_src = np.zeros((self.param.n_mom,4*self.param.n_cells))
-      self.gmres_b = self.sweep(gmres_rhs)
-
-# GMRES solver 
-      self.gmres_iteration = 0 
-      size = self.gmres_b.shape[0]
-# NEED TO COMPUTE THE RHS
-      A = scipy.sparse.linalg.LinearOperator((size,size),matvec=self.mv,
-          rmatvec=None,dtype=float)
-      self.flux_moments,flag = scipy.sparse.linalg.gmres(A,self.gmres_b,
-          x0=None,tol=self.tol,restrt=20,maxiter=self.max_iter,M=None,
-          callback=self.count_gmres_iterations)
-
-      if flag!=0 :
-        self.print_message('Transport did not converge.')
-
-    else :
-      rhs = True
-      self.flux_moments = np.zeros((4*self.param.n_cells*self.param.n_mom))
-      flux_moments_old = np.zeros((4*self.param.n_cells*self.param.n_mom))
-      for i in xrange(0,self.max_iter) :
-        self.compute_scattering_source(flux_moments_old)
-        self.flux_moments = self.sweep(rhs)
-
-        conv = scipy.linalg.norm(self.flux_moments-flux_moments_old)/\
-            scipy.linalg.norm(self.flux_moments)
-        
-        self.print_message('L2-norm of the residual for iteration %i'\
-            %i+' : %f'%conv)
-        if conv<self.tol :
-          break
-
-        flux_moments_old = self.flux_moments.copy()
-        
-    end = time.time()
-
-    self.print_message('Elapsed time to solve the problem : %f'%(end-start))
-
-    self.p1sa_flxm = self.flux_moments.copy()
-    self.mip_flxm = self.flux_moments.copy()
-
-#----------------------------------------------------------------------------#
-
-  def mv(self,x) :
-    """Perform the matrix-vector multiplication needed by GMRES."""
-
-    mv_start = time.time()
-    y=x.copy()
-
-# Compute the scattering source
-    self.compute_scattering_source(y)
-
-# Do a transport sweep (no iteration on significant angular fluxes, we assume
-# that no BC are reflective)
-    flxm = self.sweep(False)
-    sol = y-flxm
-
-    mv_end = time.time()
-    self.mv_time[2**self.param.level].append(mv_end-mv_start)
-
-    return sol
-
-#----------------------------------------------------------------------------#
-
-  def compute_scattering_source(self,x) :
+  def Compute_scattering_source(self,x) :
     """Compute the scattering source given a flux."""
 
     self.scattering_src = np.zeros((4*self.param.n_mom*self.param.n_cells))
     for cell in xrange(0,int(self.param.n_cells)) :
 # Get i,j pair from a cell
-      [i,j] = self.cell_mapping(cell)
+      [i,j] = self.Cell_mapping(cell)
       i_mat = self.param.mat_id[i,j]
-      sca = self.param.sig_s[:,i_mat]
+      sca = self.param.sig_s[i_mat,:]
 # Get location in the matrix
-      ii = self.mapping(i,j)
+      ii = self.Mapping(i,j)
 # Block diagonal term
       for k in xrange(0,self.param.n_mom) :
         kk = k*4*self.param.n_cells+ii
         tmp = x[kk[0]:kk[3]+1]
         dot_product = np.dot(self.sv.surface_sv,tmp)
         pos = 0
-        for i_kk in xrange(int(kk[0]), int(kk[3]+1)) :
+        for i_kk in xrange(int(kk[0]),int(kk[3]+1)) :
           self.scattering_src[i_kk] += self.scattering_src[i_kk]+sca[k]*\
               dot_product[pos]
           pos += 1
 
 #----------------------------------------------------------------------------#
 
-  def upwind_edge(self) :
+  def Upwind_edge(self) :
     """Compute the edge for the upwind."""
 
     x_down = np.zeros((2,4,4))
@@ -168,7 +97,7 @@ class SV_transport_solver(solver.transport_solver) :
 
 #----------------------------------------------------------------------------#
 
-  def sweep(self,gmres_rhs) :
+  def Sweep(self,gmres_rhs) :
     """Do the transport sweep on all the directions."""
 
     tmp = int(4*self.param.n_cells)
@@ -184,7 +113,7 @@ class SV_transport_solver(solver.transport_solver) :
       omega_x = self.quad.omega[idir,0]
       omega_y = self.quad.omega[idir,1]
 
-# Upwind/downwinf indices
+# Upwind/downwind indices
       if omega_x>0.0 :
         sx = 0
         x_begin = 0
@@ -208,6 +137,7 @@ class SV_transport_solver(solver.transport_solver) :
 
 # Compute the gradient
       gradient = omega_x*x_down[sx,:,:]+omega_y*y_down[sy,:,:]
+# MISSING X_GRAD and Y_GRAD ??
 
       for i in xrange(x_begin,x_end,x_incr) :
         for j in xrange(y_begin,y_end,y_incr) :
@@ -227,7 +157,7 @@ class SV_transport_solver(solver.transport_solver) :
           scat_src = np.dot(self.quad.M[idir,:],self.scattering_src[:,ii])
           rhs += scat_src
 
-# Block diagonal term
+# Block diagonal term 
           L = gradient+sig_t*self.sv.surface_sv
 
 # Upwind term in x 
@@ -235,8 +165,7 @@ class SV_transport_solver(solver.transport_solver) :
             jj = self.mapping(i-1,j)
             rhs -= omega_x*np.dot(x_up[sx,:,:],psi[jj])
           elif i==0 and idir in self.most_n['left'] and gmres_rhs==True :
-              rhs -= omega_x*np.dot(x_up[sx,:,:],self.param.inc_left[j]*\
-                  np.ones((4)))
+              rhs -= omega_x*np.dot(x_up[sx,:,:],self.param.inc_left[j]*np.ones((4)))
           if i<self.param.n_x-1 and sx==1 :
             jj = self.mapping(i+1,j)
             rhs -= omega_x*np.dot(x_up[sx,:,:],psi[jj])
@@ -250,8 +179,7 @@ class SV_transport_solver(solver.transport_solver) :
             jj = self.mapping(i,j-1)
             rhs -= omega_y*np.dot(y_up[sy,:,:],psi[jj])
           elif j==0 and idir in self.most_n['bottom'] and gmres_rhs==True :
-            rhs -= omega_y*np.dot(y_up[sy,:,:],self.param.inc_bottom[i]*\
-                np.ones((4)))
+            rhs -= omega_y*np.dot(y_up[sy,:,:],self.param.inc_bottom[i]*np.ones((4)))
           if j<self.param.n_y-1 and sy==1 :
             jj = self.mapping(i,j+1)
             rhs -= omega_y*np.dot(y_up[sy,:,:],psi[jj])

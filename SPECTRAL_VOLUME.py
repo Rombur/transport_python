@@ -3,27 +3,27 @@
 # Date: 2011-06-10 15:09:38.369341
 
 #----------------------------------------------------------------------------#
-## Class spectral_volume                                                    ##
+## Class SPECTRAL_VOLUME                                                    ##
 #----------------------------------------------------------------------------#
 
 """Contain the matrices needed for the spectral volumes"""
 
 import numpy as np
 
-class spectral_volume(object)  :
+class SPECTRAL_VOLUME(object)  :
   """Contain all the matrices needed to build the spectral volumes."""
 
-  def __init__(self,param) :
+  def __init__(self,width) :
 
-    super(spectral_volume,self).__init__()
-    self.width = param.width
-    self.width_cell = np.array([self.width[0]/param.n_div[0],self.width[1]/
-      param.n_div[1]])
-    self.delta = self.width_cell/2.
+    super(SPECTRAL_VOLUME,self).__init__()
+    self.width = width
+#    self.delta = self.width/2.
+    self.delta = 1.
+    self.n_dof_per_cell = 4
 
 #----------------------------------------------------------------------------#
 
-  def build_edge_integral(self) :
+  def Build_edge_integral(self) :
     """Build the matrices needed to perform the countour integral."""
 
     den = self.delta[0]*self.delta[1]
@@ -89,7 +89,7 @@ class spectral_volume(object)  :
 
 #----------------------------------------------------------------------------#
 
-  def build_cell_integral(self,point_value) :
+  def Build_cell_integral(self,point_value) :
     """Build the matrices needed to perform the surface integral. point_value
     is a boolean used to know how to build the array."""
 
