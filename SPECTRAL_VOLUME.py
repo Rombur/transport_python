@@ -18,7 +18,7 @@ class SPECTRAL_VOLUME(object)  :
     super(SPECTRAL_VOLUME,self).__init__()
     self.width = width
 #    self.delta = self.width/2.
-    self.delta = 1.
+    self.delta = np.ones((2))
     self.n_dof_per_cell = 4
 
 #----------------------------------------------------------------------------#

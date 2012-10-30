@@ -21,7 +21,7 @@ class QUADRATURE(object)  :
 
     super(QUADRATURE,self).__init__()
     self.sn = param.sn
-    self.n_dir = self.sn*(self.sn+2)/2
+    self.n_dir = int(self.sn*(self.sn+2)/2)
     self.galerkin = param.galerkin
     self.L_max = param.L_max
     self.n_mom = param.n_mom
@@ -39,7 +39,8 @@ class QUADRATURE(object)  :
     [self.azith_nodes,self.azith_weight] = self.Chebyshev()
 
     self.cos_theta = np.zeros((self.sn/2,1))
-    for i in xrange(0,self.sn/2) :
+    i_max = int(self.sn/2)
+    for i in range(0,i_max) :
       self.cos_theta[i] = np.real(self.polar_nodes[self.sn/2+i])
     self.sin_theta = np.sqrt(1-self.cos_theta**2)
 
@@ -64,14 +65,16 @@ class QUADRATURE(object)  :
     """Build the Chebyshev quadrature in a quadrant."""
 
     size = 0
-    for i in xrange(1,self.sn/2+1) :
+    i_max = int(self.sn/2+1) 
+    for i in range(1,i_max) :
       size += i
     nodes = np.zeros((size,1))
     weight = np.zeros((size))
 
     pos = 0
-    for i in xrange(0,self.sn/2) :
-      for j in xrange(0,self.sn/2-i) :
+    for i in range(0,i_max) :
+      j_max = int(self.sn/2-i)
+      for j in range(0,j_max) :
         nodes[pos] = (np.pi/2.)/(self.sn/2-i)*j+(np.pi/4.)/(self.sn/2-i)
         weight[pos] = np.pi/(2.*(self.sn/2-i))
         pos += 1
@@ -88,8 +91,10 @@ class QUADRATURE(object)  :
 
     pos = 0
     offset = 0
-    for i in xrange(0,self.sn/2) :
-      for j in xrange(0,self.sn/2-i) :
+    i_max = int(self.sn/2)
+    for i in range(0,i_max) :
+      j_max = int(self.sn/2-i)
+      for j in range(0,j_max) :
         self.omega[pos,0] = self.sin_theta[i]*np.cos(self.azith_nodes[j+offset])
         self.omega[pos,1] = self.sin_theta[i]*np.sin(self.azith_nodes[j+offset])
         self.omega[pos,2] = self.cos_theta[i]
@@ -103,11 +108,11 @@ class QUADRATURE(object)  :
   def Deploy_octant(self) :
     """Compute omega and the weights by deploing the octants."""
 
-    n_dir_oct = self.n_dir/4
+    n_dir_oct = int(self.n_dir/4)
     offset = 0
-    for i_octant in xrange(0,4) :
+    for i_octant in range(0,4) :
       if i_octant != 0 :
-        for i in xrange (0,n_dir_oct) :
+        for i in range (0,n_dir_oct) :
 # Copy omega and weight 
           self.weight[i+offset] = self.weight[i]
           self.omega[i+offset,2] = self.omega[i,2]
@@ -124,7 +129,7 @@ class QUADRATURE(object)  :
       offset += n_dir_oct
 
     sum_weight = 0.
-    for i in xrange(0,n_dir_oct) :
+    for i in range(0,n_dir_oct) :
       sum_weight += 4 * self.weight[i]
     self.weight[:] = self.weight[:]/sum_weight
 
@@ -137,22 +142,22 @@ class QUADRATURE(object)  :
     Yo = np.zeros((self.L_max+1,self.L_max+1,self.n_dir))
 
     phi = np.zeros((self.n_dir,1))
-    for i in xrange(0,self.n_dir) :
+    for i in range(0,self.n_dir) :
       phi[i] = np.arctan(self.omega[i,1]/self.omega[i,0])
       if self.omega[i,0] < 0. :
         phi[i] = phi[i] + np.pi
 
-    for l in xrange(0,self.L_max+1) :
-      for m in xrange(0,l+1) :
+    for l in range(0,self.L_max+1) :
+      for m in range(0,l+1) :
         P_ml =  scipy.special.lpmv(m,l,self.omega[:,2])
 # Normalization of the associated Legendre polynomials
         if m == 0 :
           norm_P = P_ml
         else :
-          norm_P = (-1.0)**m*np.sqrt(2*sci.factorial(l-m)/sci.factorial(l+m))\
-              *np.sqrt(2l+1)*P_ml
+          norm_P = (-1.0)**m*np.sqrt(2.*sci.factorial(l-m)/sci.factorial(l+m))\
+              *np.sqrt(2.*l+1.)*P_ml
         size = norm_P.shape
-        for i in xrange(0,size[0]) :
+        for i in range(0,size[0]) :
           Ye[l,m,i] = norm_P[i]*np.cos(m*phi[i])/np.sqrt(self.total_weight)
           Yo[l,m,i] = norm_P[i]*np.sin(m*phi[i])/np.sqrt(self.total_weight)
 
@@ -160,29 +165,29 @@ class QUADRATURE(object)  :
     self.sphr = np.zeros((self.n_dir,self.n_mom))
     self.M = np.zeros((self.n_dir,self.n_mom))
     if self.galerkin == True :
-      for i in xrange(0,self.n_dir) :
+      for i in range(0,self.n_dir) :
         pos = 0
-        for l in xrange(0,self.L_max+1) :
-          for m in xrange(l,-1,-1) :
+        for l in range(0,self.L_max+1) :
+          for m in range(l,-1,-1) :
 # do not use the EVEN when m+l is odd for L<sn of L=sn and m=0
             if l<self.sn and np.fmod(m+l,2)==0 :
               self.M[i,pos] = self.sphr[i,pos]
               pos += 1
-          for m in xrange(1,l+1) :
+          for m in range(1,l+1) :
 # do not ise the ODD when m+l is odd for l<=sn
             if l<=self.sn and  np.fmod(m+l,2)==0 :
               self.M[i,pos] = self.sphr[i,pos]
               pos += 1
     else :
-      for i in xrange(0,self.n_dir) :
+      for i in range(0,self.n_dir) :
         pos = 0
-        for l in xrange(0,self.L_max+1) :
-          for m in xrange(l,-1,-1) :
+        for l in range(0,self.L_max+1) :
+          for m in range(l,-1,-1) :
 # do not use the EVEN when m+l is odd 
             if np.fmod(m+l,2)==0 :
               self.M[i,pos] = self.sphr[i,pos]
               pos += 1
-          for m in xrange(1,l+1) :
+          for m in range(1,l+1) :
 # do not ise the ODD when m+l is odd 
             if np.fmod(m+l,2)==0 :
               self.M[i,pos] = self.sphr[i,pos]

@@ -28,8 +28,8 @@ class DOF_HANDLER(object) :
     self.mesh = []  
     cell_id = 0
     first_dof = 0
-    for j in xrange(param.n_y) :
-      for i in xrange(param.n_x) :      
+    for j in range(param.n_y) :
+      for i in range(param.n_x) :      
         width = np.array([param.x_width[i],param.y_width[j]])
         if param.discretization=='FE' :
           sd = FINITE_ELEMENT.FINITE_ELEMENT(width)
@@ -53,25 +53,25 @@ class DOF_HANDLER(object) :
   def Compute_sweep_ordering(self,quad,param) :
     """Compute the sweep ordering for each direction in the quadrature."""
 
-    self.sweep_ordering = [[] for i in xrange(quad.n_dir)]
-    for idir in xrange(quad.n_dir) :
+    self.sweep_ordering = [[] for i in range(quad.n_dir)]
+    for idir in range(quad.n_dir) :
       omega_x = quad.omega[idir,0]
       omega_y = quad.omega[idir,1]
       idir_sweep_ordering = []
       if omega_x>0.:
         if omega_y>0. :
-          for i in xrange(param.n_cells) :
+          for i in range(param.n_cells) :
             idir_sweep_ordering.append(i)
         else :
-          for j in xrange(param.n_y-1,-1,-1) :
-            for i in xrange(param.n_x) :
+          for j in range(param.n_y-1,-1,-1) :
+            for i in range(param.n_x) :
               idir_sweep_ordering.append(j*param.n_x+i)
       else :
         if omega_y>0. :
-          for j in xrange(param.n_y) :
-            for i in xrange(param.n_x-1,-1,-1) :
+          for j in range(param.n_y) :
+            for i in range(param.n_x-1,-1,-1) :
               idir_sweep_ordering.append(j*param.n_x+i)
         else :
-          for j in xrange(param.n_y-1,-1,-1) :
-            for i in xrange(param.n_x-1,-1,-1) :
+          for j in range(param.n_y-1,-1,-1) :
+            for i in range(param.n_x-1,-1,-1) :
               idir_sweep_ordering.append(j*param.n_x+i)

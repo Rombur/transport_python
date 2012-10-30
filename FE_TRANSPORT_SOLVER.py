@@ -13,7 +13,6 @@ import scipy.linalg
 import scipy.sparse.linalg
 import time
 import TRANSPORT_SOLVER as SOLVER
-import FINITE_ELEMENT
 
 class FE_TRANSPORT_SOLVER(SOLVER.TRANSPORT_SOLVER)  :
   """Solve the transport equation discretized with finite elements."""
@@ -43,7 +42,7 @@ class FE_TRANSPORT_SOLVER(SOLVER.TRANSPORT_SOLVER)  :
                                                     
     flux_moments = np.zeros((self.param.n_mom*self.dof_handler.n_dof))
     for idir in xrange(0,self.quad.n_dir) :
-      psi = np.zeros((4*self.param.n_cells))
+      psi = np.zeros((self.fe.n_dof_per_cell*self.param.n_cells))
 
 # Direction alias
       omega_x = self.quad.omega[idir,0]

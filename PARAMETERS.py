@@ -9,7 +9,6 @@
 """Read the inputs for the transport code"""
 
 import numpy as np
-import utils
 
 class PARAMETERS(object) :
   """Read the inputs (Sn order, material properties and geometry) for the
@@ -37,16 +36,16 @@ class PARAMETERS(object) :
     self.n_cells = self.n_x*self.n_y
     self.Resize()
 # material property
-    self.L_max = L_max
+    self.L_max = int(L_max)
     self.sig_t = sig_t
     self.sig_s = sig_s
-    for i_mat in xrange(0,int(self.mat_id.max()+1)) :
+    for i_mat in range(0,int(self.mat_id.max()+1)) :
       if self.sig_s[i_mat,0]>self.sig_t[i_mat] :
-        utils.abort('sig_s[0] is greater than sig_t.')
+         raise NameError('sig_s[0] is greater than sig_t.')
     self.n_mom = self.sig_s.shape[0]
     self.galerkin = galerkin
     if self.galerkin == False :
-      self.sn = sn
+      self.sn = int(sn)
     else :
       self.sn = self.L_max
     self.weight = weight
@@ -68,12 +67,12 @@ class PARAMETERS(object) :
     pos_x = 0
     old_pos_x = 0
     for x_div in self.n_x_div :
-      for i in xrange(x_div) :
+      for i in range(x_div) :
         x_width_tmp[pos_x] = self.x_width[old_pos_x]/x_div
         pos_y = 0
         old_pos_y = 0
         for y_div in self.n_y_div :
-          for j in xrange(y_div) :
+          for j in range(y_div) :
             mat_id_tmp[pos_x,pos_y] = self.mat_id[old_pos_x,old_pos_y]
             src_id_tmp[pos_x,pos_y] = self.src_id[old_pos_x,old_pos_y]
             pos_y += 1
@@ -83,7 +82,7 @@ class PARAMETERS(object) :
     pos_y = 0
     old_pos_y = 0
     for y_div in self.n_y_div :
-      for i in xrange(y_div) :
+      for i in range(y_div) :
         y_width_tmp[pos_y] = self.y_width[old_pos_y]/y_div
         pos_y += 1
       old_pos_y += 1

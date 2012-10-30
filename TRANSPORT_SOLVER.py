@@ -50,7 +50,7 @@ class TRANSPORT_SOLVER(object) :
     right = []
     top = []
     bottom = []
-    for i in xrange(0,self.quad.n_dir) :
+    for i in range(0,self.quad.n_dir) :
       if self.quad.omega[i,0] == max_elements[0] :
         left.append(i)
       elif self.quad.omega[i,0] == min_elements[0] :
@@ -72,17 +72,17 @@ class TRANSPORT_SOLVER(object) :
     self.gmres_iteration += 1
     res = scipy.linalg.norm(residual) 
     if self.param.verbose>0 :
-      self.print_message('L2-norm of the residual for iteration %i'\
+      self.Print_message('L2-norm of the residual for iteration %i'\
           %self.gmres_iteration+' : %f'%scipy.linalg.norm(residual))
 #----------------------------------------------------------------------------#
 
-  def Print_message(self,a) :
-    """Print the given message a on the screen or in a file."""
+  def Print_message(self,message) :
+    """Print the given message on the screen or in a file."""
 
     if self.param.print_to_file==True :
       self.output_file.write(a+'\n')
     else :
-      print a 
+      print(message)
 
 #----------------------------------------------------------------------------#
 
@@ -99,27 +99,27 @@ class TRANSPORT_SOLVER(object) :
 # GMRES solver 
       self.gmres_iteration = 0 
       size = self.gmres_b.shape[0]
-      A = scipy.sparse.linalg.LinearOperator((size,size),matvec=self.mv,
+      A = scipy.sparse.linalg.LinearOperator((size,size),matvec=self.Mv,
           rmatvec=None,dtype=float)
       self.flux_moments,flag = scipy.sparse.linalg.gmres(A,self.gmres_b,
           x0=None,tol=self.tol,restrt=20,maxiter=self.max_iter,M=None,
-          callback=self.count_gmres_iterations)
+          callback=self.Count_gmres_iterations)
 
       if flag!=0 :
-        self.print_message('Transport did not converge.')
+        self.Print_message('Transport did not converge.')
 
     else :
       rhs = True
       self.flux_moments = np.zeros((4*self.param.n_cells*self.param.n_mom))
       flux_moments_old = np.zeros((4*self.param.n_cells*self.param.n_mom))
-      for i in xrange(0,self.max_iter) :
+      for i in range(0,self.max_iter) :
         self.compute_scattering_source(flux_moments_old)
         self.flux_moments = self.sweep(rhs)
 
         conv = scipy.linalg.norm(self.flux_moments-flux_moments_old)/\
             scipy.linalg.norm(self.flux_moments)
         
-        self.print_message('L2-norm of (phi^k+1 - phi^k)/phi^k for iteration %i'\
+        self.Print_message('L2-norm of (phi^k+1 - phi^k)/phi^k for iteration %i'\
             %i+' : %f'%conv)
         if conv<self.tol :
           break
@@ -128,7 +128,7 @@ class TRANSPORT_SOLVER(object) :
         
     end = time.time()
 
-    self.print_message('Elapsed time to solve the problem : %f'%(end-start))
+    self.Print_message('Elapsed time to solve the problem : %f'%(end-start))
 
 #----------------------------------------------------------------------------#
 
@@ -158,7 +158,7 @@ class TRANSPORT_SOLVER(object) :
 
 #----------------------------------------------------------------------------#
 
-  def Sweep(self) :
+  def Sweep(self,gmres_rhs) :
     """Do the transport sweep on all the directions."""
 
     raise NotImplementedError("sweep is purely virtual and must be\

@@ -9,7 +9,6 @@
 """Create the output file"""
 
 import numpy as np
-import mayavi
 import PARAMETERS
 
 class OUTPUT(object) :
@@ -19,6 +18,7 @@ class OUTPUT(object) :
 
     super(OUTPUT,self).__init__()
     self.filename = filename
+    self.flux_moments = flux_moments
     self.param = param
     self.Compute_grid()
     self.Compute_scalar_flux(n_dof)
@@ -33,15 +33,15 @@ class OUTPUT(object) :
     self.x = np.zeros(x_size)
     self.y = np.zeros(y_size)
 
-    for i in xrange(1,x_size-1,2) :
-      self.x[i] = self.x[i-1]+self.param.width_x_cell[i%2]
-      self.x[i+1] = self.x[i-1]+self.param.width_x_cell[i%2]
-    self.x[x_size-1] = self.x[x_size-2]+self.param.width_x_cell[(x_size-1)%2]
+    for i in range(1,x_size-1,2) :
+      self.x[i] = self.x[i-1]+self.param.x_width[i%2]
+      self.x[i+1] = self.x[i-1]+self.param.x_width[i%2]
+    self.x[x_size-1] = self.x[x_size-2]+self.param.x_width[(x_size-1)%2]
     
-    for i in xrange(1,y_size-1,2) :
-      self.y[i] = self.y[i-1]+self.param.width_y_cell[i%2]
-      self.y[i+1] = self.y[i-1]+self.param.width_y_cell[i%2]
-    self.y[y_size-1] = self.y[y_size-2]+self.param.width_y_cell[(y_size-1)%2]
+    for i in range(1,y_size-1,2) :
+      self.y[i] = self.y[i-1]+self.param.y_width[i%2]
+      self.y[i+1] = self.y[i-1]+self.param.y_width[i%2]
+    self.y[y_size-1] = self.y[y_size-2]+self.param.y_width[(y_size-1)%2]
 
 #----------------------------------------------------------------------------#
 
@@ -50,7 +50,7 @@ class OUTPUT(object) :
 
     self.scalar_flux = np.zeros(n_dof)
     weight = np.sqrt(self.param.weight)
-    for i in xrange(n_dof) :
+    for i in range(n_dof) :
       self.scalar_flux[i] = weight*self.flux_moments[i]
 
 #----------------------------------------------------------------------------#

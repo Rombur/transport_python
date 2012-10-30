@@ -10,3 +10,4 @@ _*
 cg.py
 *.gz
 *.un~
+__pycache__
